@@ -1,0 +1,129 @@
+{% extends 'base.html' %}
+
+{% block active_deposits %}active{% endblock %}
+
+{% block content %}
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+        <h2>Salary-Earner Deposit Scheme Registry</h2>
+        <a href="?show_modal=add_account" class="btn" style="background: #013220; color: white;">+ Register New Account</a>
+    </div>
+
+    <!-- Feedback and Validation Alert Messages Wrapper -->
+    {% if messages %}
+        <div style="margin-bottom: 20px;">
+            {% for message in messages %}
+                <div style="padding: 12px; border-radius: 4px; 
+                    {% if message.tags == 'error' %}
+                        background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;
+                    {% else %}
+                        background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0;
+                    {% endif %} 
+                    margin-bottom: 8px; font-weight: 500;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Main Accounts Ledger Table -->
+    <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <thead>
+            <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; text-align: left;">
+                <th style="padding: 14px;">Account No.</th>
+                <th style="padding: 14px;">Customer Name</th>
+                <th style="padding: 14px;">National ID (NIN)</th>
+                <th style="padding: 14px;">Phone Number</th>
+                <th style="padding: 14px;">Available Balance</th>
+                <th style="padding: 14px; text-align: right;">Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for acc in accounts %}
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 14px; font-family: monospace; font-weight: bold; color: #0369a1;">{{ acc.account_number }}</td>
+                <td style="padding: 14px; font-weight: 600; color: #1e293b;">{{ acc.customer_name }}</td>
+                <td style="padding: 14px; font-family: monospace; color: #475569;">{{ acc.national_id_nin }}</td>
+                <td style="padding: 14px; color: #475569;">{{ acc.phone_number }}</td>
+                <td style="padding: 14px; font-weight: bold; color: #0369a1;">UGX {{ acc.current_balance }}</td>
+                <td style="padding: 14px; text-align: right;">
+                    <a href="?top_up_id={{ acc.id }}" class="btn" style="background: #e0f2fe; color: #0369a1; padding: 6px 12px; font-size: 13px;">➕ Add Cash Deposit</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="padding: 30px; text-align: center; color: #94a3b8;">
+                    No salary earner accounts registered under this deposit scheme loop yet.
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Modal Form: Register New Account -->
+    {% if display_add_modal %}
+    <div class="modal-overlay">
+        <div class="modal-box">
+            <a href="?" class="close-x">&times;</a>
+            <h3 style="margin-bottom: 20px; color: #0f172a;">Open Deposit Scheme Account</h3>
+            <form method="POST" action="{% url 'deposit' %}">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="create_account">
+                
+                <div class="field">
+                    <label>Account Number (Unique reference):</label>
+                    <input type="text" name="account_number" placeholder="E.g., NYD-ACC-101" required>
+                </div>
+                <div class="field">
+                    <label>Full Customer Name:</label>
+                    <input type="text" name="customer_name" required>
+                </div>
+                <div class="field">
+                    <label>Ugandan Phone Number:</label>
+                    <input type="text" name="phone_number" placeholder="E.g., 0772123456" required>
+                </div>
+                <div class="field">
+                    <label>National ID Card NIN (14 characters):</label>
+                    <input type="text" name="national_id_nin" placeholder="E.g., CM950XXXXXXXXX" required>
+                </div>
+                <div class="field">
+                    <label>Initial Cash Deposit (UGX):</label>
+                    <input type="number" name="initial_balance" min="0" value="0" required>
+                </div>
+                
+                <button type="submit" class="btn" style="background: #0284c7; color: white; width: 100%; font-size: 15px;">
+                    Save Profile & Issue Ledger Account
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Modal Form: Record Scheme Deposit Top-Up -->
+    {% if display_top_up_modal %}
+    <div class="modal-overlay">
+        <div class="modal-box">
+            <a href="?" class="close-x">&times;</a>
+            <h3 style="margin-bottom: 10px; color: #0f172a;">Record Scheme Deposit</h3>
+            <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">
+                Customer: <strong>{{ target_account.customer_name }}</strong>
+            </p>
+            
+            <form method="POST" action="{% url 'deposit' %}">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="top_up">
+                <input type="hidden" name="account_id" value="{{ target_account.id }}">
+                
+                <div class="field">
+                    <label>Physical Cash Amount Handed In (UGX):</label>
+                    <input type="number" name="deposit_amount" min="1000" placeholder="Minimum 1,000 UGX" required>
+                </div>
+                
+                <button type="submit" class="btn" style="background: #16a34a; color: white; width: 100%; font-size: 15px;">
+                    Confirm & Update Ledger Account Balance
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+{% endblock %}

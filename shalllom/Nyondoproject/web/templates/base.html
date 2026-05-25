@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NYONDO Hardware System</title>
+    
+    <style>
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f4f6f9;
+            color: #333;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        
+        .sidebar {
+            width: 260px;
+            background-color:#013220;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 0;
+        }
+
+        .sidebar-brand {
+            padding: 0 20px 20px 20px;
+            border-bottom: 1px solid #334155;
+            font-size: 18px;
+            font-weight: bold;
+            letter-spacing: 0.5px;
+            color: #38bdf8;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            margin-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .sidebar-menu a {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            color: #cbd5e1;
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 15px;
+            transition: all 0.2s ease;
+        }
+
+        
+        .sidebar-menu a svg {
+            margin-right: 12px;
+            width: 18px;
+            height: 18px;
+            fill: currentColor;
+            flex-shrink: 0;
+        }
+
+        .sidebar-menu a:hover {
+            background-color: #334155;
+            color: #fff;
+            border-left: 4px solid #38bdf8;
+        }
+
+        .sidebar-menu li.active a {
+            background-color: #0f172a;
+            color: #38bdf8;
+            border-left: 4px solid #38bdf8;
+            font-weight: bold;
+        }
+
+        
+        .main-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* Top Navigation Header bar */
+        .top-navbar {
+            height: 60px;
+            background-color: #fff;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 30px;
+        }
+
+        .system-date {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .system-date svg {
+            width: 16px;
+            height: 16px;
+            fill: #64748b;
+        }
+
+        .user-profile {
+            font-size: 14px;
+            font-weight: bold;
+            color: #1e293b;
+            background: #e2e8f0;
+            padding: 6px 14px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .user-profile svg {
+            width: 16px;
+            height: 16px;
+            fill: #1e293b;
+        }
+
+        .logout-link {
+            color: #ef4444;
+            margin-left: 4px;
+            font-weight: bold;
+            text-decoration: none;
+            transition: color 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+
+        .logout-link svg {
+            width: 14px;
+            height: 14px;
+            fill: currentColor;
+        }
+
+        .logout-link:hover {
+            color: #dc2626;
+            text-decoration: underline;
+        }
+
+        .content-body {
+            flex: 1;
+            padding: 30px;
+            overflow-y: auto;
+        }
+
+        .btn {
+            padding: 10px 16px;
+            text-decoration: none;
+            font-weight: bold;
+            display: inline-block;
+            border: none;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 14px;
+            transition: background 0.2s;
+        }
+
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+            backdrop-filter: blur(2px);
+        }
+
+        .modal-box {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            width: 480px;
+            position: relative;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+        }
+
+        .close-x {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 22px;
+            color: #94a3b8;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .close-x:hover {
+            color: #ef4444;
+        }
+
+        .field {
+            margin-bottom: 16px;
+        }
+
+        .field label {
+            display: block;
+            margin-bottom: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            color: #334155;
+        }
+
+        .field input,
+        .field select,
+        .field textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            font-size: 14px;
+            color: #1e293b;
+            outline: none;
+        }
+
+        .field input:focus,
+        .field select:focus,
+        .field textarea:focus {
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+        }
+
+        .status-badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            font-size: 13px;
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <div class="sidebar">
+        <div class="sidebar-brand">NYONDO HARDWARE</div>
+        <ul class="sidebar-menu">
+            <li class="{% block active_reports %}{% endblock %}">
+                <li class="{% block active_dashboard %}{% endblock %}">
+                <a href="{% url 'admin_dashboard' %}">
+                    <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                    Admin Dashboard
+                </a>
+            </li>
+                <a href="{% url 'reports' %}">
+                    <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"/></svg>
+                    Reports & Analytics
+                </a>
+            </li>
+            <li class="{% block active_stock %}{% endblock %}">
+                <a href="{% url 'stock' %}">
+                    <svg viewBox="0 0 24 24"><path d="M4 19h16v-7H4v7zm16-9c.55 0 1-.45 1-1V6c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v3c0 .55.45 1 1 1h16z"/></svg>
+                    Stock Management
+                </a>
+            </li>
+            <li class="{% block active_sales %}{% endblock %}">
+                <a href="{% url 'sales' %}">
+                    <svg viewBox="0 0 24 24"><path d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"/></svg>
+                    Sales & Point of Sale
+                </a>
+            </li>
+            <li class="{% block active_credit %}{% endblock %}">
+                <a href="{% url 'credit' %}">
+                    <svg viewBox="0 0 24 24"><path d="M20 4H4c-1.11 0-1.99.89-1.99 2L2 18c0 1.11.89 2 2 2h16c1.11 0 2-.89 2-2V6c0-1.11-.89-2-2-2zm0 14H4v-6h16v6zm0-10H4V6h16v2z"/></svg>
+                    Supplier Credit Tracker
+                </a>
+            </li>
+
+            <li class="{% block active_deposits %}{% endblock %}">
+                <a href="{% url 'deposit' %}">
+                    <svg viewBox="0 0 24 24"><path d="M21 18v1c0 1.1-.9 2-2 2H5c-1.11 0-2-.9-2-2V5c0-1.1.89-2 2-2h14c1.1 0 2 .9 2 2v1h-9c-1.11 0-2 .9-2 2v8c0 1.1.89 2 2 2h9zm-9-2h10V8H12v8zm4-2.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5 0.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+                    Salary Deposit Scheme
+                </a>
+            </li>
+
+            <li class="{% block active_users %}{% endblock %}">
+                <a href="{% url 'user_management' %}">
+                    <svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+                    User Account Control
+                </a>
+            </li>
+        </ul>
+    </div>
+    <div class="main-container"> 
+        <header class="top-navbar">
+            <div class="system-date">
+                <svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11z"/></svg>
+                Operations Date: <strong>May 19, 2026</strong>
+            </div>
+            <div class="user-profile">
+                <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 3c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm0 14.2c-2.5 0-4.71-1.28-6-3.22.03-1.99 4-3.08 6-3.08 1.99 0 5.97 1.09 6 3.08-1.29 1.94-3.5 3.22-6 3.22z"/></svg>
+                User: 
+                <strong>
+                    {% if user.is_authenticated %}
+                        {{ user.get_full_name|default:user.username }}
+                    {% else %}
+                        System Guest
+                    {% endif %}
+                </strong> |
+                <a href="{% url 'logout' %}" class="logout-link">
+                    <svg viewBox="0 0 24 24"><path d="M10.09 15.59L11.5 17l5-5-5-5-1.41 1.41L12.67 11H3v2h9.67l-2.58 2.59zM19 3H5c-1.11 0-2 .9-2 2v4h2V5h14v14H5v-4H3v4c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2z"/></svg>
+                    Exit
+                </a>
+            </div>
+        </header>
+        <main class="content-body">
+            {% block content %}
+            {% endblock %}
+        </main>
+    </div>
+</body>
+</html>

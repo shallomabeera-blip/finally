@@ -1,0 +1,231 @@
+{% extends 'base.html' %}
+
+{% block active_sales %}active{% endblock %}
+
+{% block content %}
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+        <h2>Sales Ledger & Point of Sale</h2>
+        <a href="?show_modal=new_sale" class="btn" style="background: #013220; color: white;">+ Record New Sale</a>
+    </div>
+
+    # message notifications
+    
+    {% if messages %}
+    <div style="margin-bottom: 20px;">
+        {% for message in messages %}
+            <div style="padding: 12px; border-radius: 4px; 
+                {% if 'Failed' in message|stringformat:'s' or 'Error' in message|stringformat:'s' or 'error' in message.tags %}F
+                    background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;
+                {% else %}
+                    background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0;
+                {% endif %} font-weight: 500; margin-bottom: 8px;">
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+
+
+    
+    <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <thead>
+            <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; text-align: left;">
+                <th style="padding: 14px;">Invoice Date</th>
+                <th style="padding: 14px;">Hardware Item</th>
+                <th style="padding: 14px;">Customer / Account</th>
+                <th style="padding: 14px;">Qty Sold</th>
+                <th style="padding: 14px;">Transport Cost</th>
+                <th style="padding: 14px;">Total Settlement</th>
+                <th style="padding: 14px;">Method</th>
+                <th style="padding: 14px; text-align: right;">Receipt</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for sale in sales %}
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 14px; color: #64748b;">{{ sale.date_processed|date:"d M Y, H:i" }}</td>
+                <td style="padding: 14px; font-weight: 600; color: #1e293b;">{{ sale.product.name }}</td>
+                <td style="padding: 14px; color: #475569;">
+                    {% if sale.customer_account %}{{ sale.customer_account.customer_name }}{% else %}<span style="color: #94a3b8; font-style: italic;">Walk-in Cash Client</span>{% endif %}
+                </td>
+                <td style="padding: 14px;">{{ sale.quantity_sold }} pcs</td>
+                <td style="padding: 14px; color: #64748b;">
+                    {% if sale.requires_transport %}UGX {{ sale.transport_charge }}{% else %}-{% endif %}
+                </td>
+                <td style="padding: 14px; font-weight: bold; color: #16a34a;">UGX {{ sale.grand_total }}</td>
+                <td style="padding: 14px;">
+                    <span style="font-size: 13px; padding: 4px 8px; background: #f1f5f9; border-radius: 4px; font-weight: 500;">
+                        {{ sale.get_payment_method_display }}
+                    </span>
+                </td>
+                <td style="padding: 14px; text-align: right;">
+                    <a href="?view_receipt_id={{ sale.id }}" class="btn" style="background: #e2e8f0; color: #334155; padding: 6px 12px; font-size: 13px;">View Receipt</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" style="padding: 30px; text-align: center; color: #94a3b8;">No physical records found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+
+# screen POPUP
+
+    {% if display_sale_modal %}
+    <div class="modal-overlay">
+        <!-- Enlarged modal window layout using CSS grid down the middle split -->
+        <div class="modal-box" style="width: 850px; display: grid; grid-template-columns: 1fr 1fr; gap: 30px; border-radius: 8px;">
+            <a href="?" class="close-x">&times;</a>
+            
+            
+            <div style="border-right: 1px solid #e2e8f0; padding-right: 20px;">
+                <h3 style="margin-bottom: 20px; color: #0f172a;">Process Customer Checkout</h3>
+                
+                
+                <form method="GET" action="">
+                    <input type="hidden" name="show_modal" value="new_sale">
+                    
+                    <div class="field">
+                        <label>Select Product:</label>
+                        <select name="product" onchange="this.form.submit()"> <!-- Simple native element fallback layout refresh -->
+                            <option value="">-- Choose Stock Item --</option>
+                            {% for prod in products %}
+                                <option value="{{ prod.id }}" {% if request.GET.product == prod.id|stringformat:"i" %}selected{% endif %}>
+                                    {{ prod.name }} (UGX {{ prod.selling_price }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label>Quantity to Purchase:</label>
+                        <input type="number" name="quantity_sold" min="1" value="{{ request.GET.quantity_sold }}" placeholder="Enter quantity">
+                    </div>
+
+                    <div style="background: #f8fafc; padding: 12px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #e2e8f0;">
+                        <div style="display: flex; align-items: center; gap: 8px;">
+                            <input type="checkbox" id="t_toggle" name="requires_transport" {% if request.GET.requires_transport == 'on' %}checked{% endif %} style="width:auto;">
+                            <label for="t_toggle" style="margin:0; font-weight:bold; font-size:13px;">Add Transport Fees</label>
+                        </div>
+                        <div class="field" style="margin:10px 0 0 20px;">
+                            <label style="font-size:12px;">Distance (KM):</label>
+                            <input type="number" name="delivery_distance_km" min="0" step="0.1" value="{{ request.GET.delivery_distance_km|default:'0' }}">
+                        </div>
+                    </div>
+
+                   
+                    <button type="submit" class="btn" style="background: #64748b; color: white; width: 100%; margin-bottom: 15px; font-size:13px;">
+                        Calculate Live Invoice Preview
+                    </button>
+                </form>
+
+                
+                <form method="POST" action="{% url 'sales' %}">
+                    {% csrf_token %}
+                    <!-- Carry input state constants straight into POST attributes variables securely -->
+                    <input type="hidden" name="product" value="{{ request.GET.product }}">
+                    <input type="hidden" name="quantity_sold" value="{{ request.GET.quantity_sold }}">
+                    <input type="hidden" name="requires_transport" value="{{ request.GET.requires_transport }}">
+                    <input type="hidden" name="delivery_distance_km" value="{{ request.GET.delivery_distance_km }}">
+
+                    <div class="field">
+                        <label>Settlement Payment Method:</label>
+                        <select name="payment_method" required>
+                            <option value="CASH">Cash / Mobile Money Checkout</option>
+                            <option value="DEPOSIT_SCHEME">Salary Deposit Scheme Balance</option>
+                        </select>
+                    </div>
+
+                    <div class="field">
+                        <label>If Scheme Balance, Select Customer Account:</label>
+                        <select name="customer_account">
+                            <option value="">-- Choose Account Owner --</option>
+                            {% for acc in deposit_accounts %}
+                                <option value="{{ acc.id }}">{{ acc.customer_name }} (UGX {{ acc.current_balance }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button type="submit" class="btn" style="background: #16a34a; color: white; width: 100%; font-size: 14px; padding: 12px;">
+                        Authorize Order & Finalize Sale
+                    </button>
+                </form>
+            </div>
+
+            
+            <div style="background: #fafafa; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 20px; display: flex; flex-direction: column; justify-content: center; font-family: monospace;">
+                {% if preview_data %}
+                    <div style="text-align: center; margin-bottom: 15px; border-bottom: 1px dashed #000; padding-bottom: 10px;">
+                        <h4 style="margin: 0;">NYONDO GENERAL HARDWARE</h4>
+                        <p style="font-size: 11px; margin: 2px 0 0 0;">LIVE INVOICE PREVIEW SLIP</p>
+                    </div>
+
+                    <div style="font-size: 12px; line-height: 1.6; flex: 1;">
+                        <p><strong>Item:</strong> {{ preview_data.product_name }}</p>
+                        <p><strong>Rate:</strong> UGX {{ preview_data.unit_price }}</p>
+                        <p><strong>Quantity:</strong> {{ preview_data.quantity }} pcs</p>
+                        <p><strong>Items Cost:</strong> UGX {{ preview_data.subtotal }}</p>
+                        
+                        {% if preview_data.requires_transport %}
+                            <p><strong>Transit:</strong> {{ preview_data.distance }} KM</p>
+                            <p><strong>Transport Fee:</strong> UGX {{ preview_data.transport_fee }}</p>
+                        {% endif %}
+                    </div>
+
+                    <div style="font-size: 14px; font-weight: bold; display: flex; justify-content: space-between; border-top: 1px dashed #000; padding-top: 10px; margin-top: 15px;">
+                        <span>ESTIMATED TOTAL:</span>
+                        <span style="color:#16a34a;">UGX {{ preview_data.grand_total }}</span>
+                    </div>
+                {% else %}
+                    <!-- Visual feedback fallback state indicator -->
+                    <div style="text-align: center; color: #94a3b8; font-family: sans-serif; font-size: 13px;">
+                        <p>Fill out the left product forms and click <strong>Calculate Live Invoice Preview</strong> to populate this structural receipt matrix field instantly.</p>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+
+   
+    {% if display_receipt_modal %}
+    <div class="modal-overlay">
+        <div class="modal-box" style="width: 380px; font-family: monospace; background: #fff; border-radius: 4px;">
+            <a href="?" class="close-x" style="font-family: sans-serif;">&times;</a>
+            
+            <div style="text-align: center; margin-bottom: 15px; border-bottom: 1px dashed #000; padding-bottom: 15px;">
+                <h3 style="margin: 0; letter-spacing: 0.5px;">NYONDO GEN. HARDWARE LTD</h3>
+                <p style="font-size: 11px; margin-top:4px;">Invoice Reference: #INV-NYD-{{ receipt.id }}</p>
+            </div>
+
+            <div style="font-size: 13px; line-height: 1.6; margin-bottom: 15px; border-bottom: 1px dashed #000; padding-bottom: 15px;">
+                <p><strong>Item Purchased:</strong> {{ receipt.product.name }}</p>
+                <p><strong>Quantity:</strong> {{ receipt.quantity_sold }} pcs</p>
+                <p><strong>Base Total:</strong> UGX {{ receipt.product_total }}</p>
+                {% if receipt.requires_transport %}
+                <p><strong>Transport Fee:</strong> UGX {{ receipt.transport_charge }}</p>
+                {% endif %}
+            </div>
+
+            <div style="font-size: 14px; font-weight: bold; display: flex; justify-content: space-between; margin-bottom: 15px;">
+                <span>GRAND TOTAL PAID:</span>
+                <span>UGX {{ receipt.grand_total }}</span>
+            </div>
+
+            <div style="text-align: center; font-size: 12px; color: #555;">
+                <p>Payment System Mode: {{ receipt.get_payment_method_display }}</p>
+                <p style="margin-top: 10px; font-weight: bold; color:#16a34a;">Transaction Log Saved Successfully!</p>
+            </div>
+
+            <div style="margin-top: 25px;">
+                <button class="btn" style="background: #0f172a; color: white; width: 100%; font-family:sans-serif;" onclick="window.print()">
+                    Physical Print System Receipt
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+{% endblock %}

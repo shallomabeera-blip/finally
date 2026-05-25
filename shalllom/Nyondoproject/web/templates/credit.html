@@ -1,0 +1,137 @@
+{% extends 'base.html' %}
+
+{% block active_credit %}active{% endblock %}
+
+{% block content %}
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
+        <h2>Supplier Credit Tracker</h2>
+        <a href="?show_modal=add_credit" class="btn" style="background:  #013220; color: white;">Credit Purchase</a>
+    </div>
+
+    <!-- Message Alerts Panel using the updated error-free template blocks -->
+    {% if messages %}
+        <div style="margin-bottom: 20px;">
+            {% for message in messages %}
+                <div style="padding: 12px; border-radius: 4px; 
+                    {% if 'error' in message.tags or 'Failed' in message|stringformat:'s' %}
+                        background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;
+                    {% else %}
+                        background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0;
+                    {% endif %} font-weight: 500; margin-bottom: 8px;">
+                    {{ message }}
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    
+    <table style="width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+        <thead>
+            <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; text-align: left;">
+                <th style="padding: 14px;">Supplier</th>
+                <!-- <th style="padding: 14px;">Invoice Ref</th> -->
+                <th style="padding: 14px;">Total Amount</th>
+                <th style="padding: 14px;">Deposit Made</th>
+                <th style="padding: 14px;">Balance Owed</th>
+                <th style="padding: 14px;">Due Date</th>
+                <th style="padding: 14px;">Credit Status</th>
+                <th style="padding: 14px; text-align: right;">Action</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for debt in credits %}
+            <tr style="border-bottom: 1px solid #f1f5f9;">
+                <td style="padding: 14px; font-weight: 600; color: #1e293b;">{{ debt.supplier.name }}</td>
+                <!-- <td style="padding: 14px; font-family: monospace;">{{ debt.invoice_number }}</td> -->
+                <td style="padding: 14px;">UGX {{ debt.total_amount }}</td>
+                <td style="padding: 14px; color: #166534;">UGX {{ debt.amount_paid }}</td>
+                <td style="padding: 14px; font-weight: bold; color: #b91c1c;">UGX {{ debt.balance_due }}</td>
+                <td style="padding: 14px; color: #475569;">{{ debt.due_date|date:"d M Y" }}</td>
+                <td style="padding: 14px;">
+                   
+                    {% if debt.balance_due == 0 %}
+                        <span class="status-badge status-good" style="background:#dcfce7; color:#166534;">Settled</span>
+                    {% elif debt.due_date < today %}
+                        <span class="status-badge status-out" style="background:#fee2e2; color:#991b1b; animation: pulse 2s infinite;">OVERDUE</span>
+                    {% else %}
+                        <span class="status-badge status-low" style="background:#fef9c3; color:#856404;">Pending</span>
+                    {% endif %}
+                </td>
+                <td style="padding: 14px; text-align: right;">
+                    {% if debt.balance_due > 0 %}
+                        <a href="?pay_id={{ debt.id }}" class="btn" style="background: #10b981; color: white; padding: 6px 12px; font-size: 13px;">Pay Bill</a>
+                    {% else %}
+                        <span style="color: #94a3b8; font-size: 13px; font-style: italic;">No Balance</span>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="8" style="padding: 30px; text-align: center; color: #94a3b8;">No supplier credit records logged in the accounts registry system.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+
+   
+    {% if display_add_modal %}
+    <div class="modal-overlay">
+        <div class="modal-box">
+            <a href="?" class="close-x">&times;</a>
+            <h3 style="margin-bottom: 20px; color: #0f172a;">Record Supplier Credit Purchase</h3>
+            <form method="POST" action="{% url 'credit' %}">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="create_credit">
+                
+                <div class="field">
+                    <label>Select Manufacturer/Supplier:</label>
+                    <select name="supplier" required>
+                        <option value="">-- Choose Corporate Supplier --</option>
+                        {% for sup in suppliers %}
+                            <option value="{{ sup.id }}">{{ sup.name }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="field"><label>Supplier Invoice Reference Code:</label><input type="text" name="invoice_number" required></div>
+                <div class="field"><label>Total Invoice Value (UGX):</label><input type="number" name="total_amount" required></div>
+                <div class="field"><label>Downpayment / Paid Upfront (UGX):</label><input type="number" name="amount_paid" value="0" required></div>
+                <div class="field"><label>Repayment Deadline Date:</label><input type="date" name="due_date" required></div>
+                
+                <button type="submit" class="btn" style="background: #e11d48; color: white; width: 100%; font-size: 15px;">
+                    Log Debt Statement into General Ledger
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+
+   
+    {% if display_payment_modal %}
+    <div class="modal-overlay">
+        <div class="modal-box">
+            <a href="?" class="close-x">&times;</a>
+            <h3 style="margin-bottom: 10px; color: #0f172a;">Clear Supplier Liability</h3>
+            <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">
+                Paying: <strong>{{ target_credit.supplier.name }}</strong> (Invoice: #{{ target_credit.invoice_number }})<br>
+                Outstanding Balance: <strong style="color: #b91c1c;">UGX {{ target_credit.balance_due }}</strong>
+            </p>
+            
+            <form method="POST" action="{% url 'credit' %}">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="pay_credit">
+                <input type="hidden" name="credit_id" value="{{ target_credit.id }}">
+                
+                <div class="field">
+                    <label>Repayment Cash Paid Out (UGX):</label>
+                    <input type="number" name="payment_amount" max="{{ target_credit.balance_due }}" min="1" placeholder="Enter amount to clear" required>
+                </div>
+                
+                <button type="submit" class="btn" style="background: #10b981; color: white; width: 100%; font-size: 15px;">
+                    Post Bill Settlement Payment
+                </button>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
+{% endblock %}
