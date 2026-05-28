@@ -12,14 +12,15 @@
     {% if messages %}
         <div style="margin-bottom: 20px;">
             {% for message in messages %}
-                <div style="padding: 12px; border-radius: 4px; 
-                    {% if 'error' in message.tags or 'Failed' in message|stringformat:'s' %}
-                        background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;
-                    {% else %}
-                        background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0;
-                    {% endif %} font-weight: 500; margin-bottom: 8px;">
-                    {{ message }}
-                </div>
+                {% if 'error' in message.tags or 'Failed' in message|stringformat:'s' %}
+                    <div style="padding: 12px; border-radius: 4px; background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-weight: 500; margin-bottom: 8px;">
+                        {{ message }}
+                    </div>
+                {% else %}
+                    <div style="padding: 12px; border-radius: 4px; background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; font-weight: 500; margin-bottom: 8px;">
+                        {{ message }}
+                    </div>
+                {% endif %}
             {% endfor %}
         </div>
     {% endif %}
@@ -92,8 +93,8 @@
                     </select>
                 </div>
                 <div class="field"><label>Supplier Invoice Reference Code:</label><input type="text" name="invoice_number" required></div>
-                <div class="field"><label>Total Invoice Value (UGX):</label><input type="number" name="total_amount" required></div>
-                <div class="field"><label>Downpayment / Paid Upfront (UGX):</label><input type="number" name="amount_paid" value="0" required></div>
+                <div class="field"><label>Total Invoice Value (UGX):</label><input type="number" name="total_amount" min="0" required></div>
+                <div class="field"><label>Downpayment / Paid Upfront (UGX):</label><input type="number" name="amount_paid" min="0" value="0" required></div>
                 <div class="field"><label>Repayment Deadline Date:</label><input type="date" name="due_date" required></div>
                 
                 <button type="submit" class="btn" style="background: #e11d48; color: white; width: 100%; font-size: 15px;">

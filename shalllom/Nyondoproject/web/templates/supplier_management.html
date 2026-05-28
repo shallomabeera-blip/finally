@@ -1,0 +1,264 @@
+{% extends 'base.html' %}
+
+{% block extra_head %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 30px;
+    }
+
+    .page-title {
+        font-size: 28px;
+        font-weight: bold;
+        color: #1e293b;
+    }
+
+    .btn-primary {
+        background-color: #0ea5e9;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        text-decoration: none;
+        font-weight: bold;
+        transition: background-color 0.2s;
+    }
+
+    .btn-primary:hover {
+        background-color: #0284c7;
+    }
+
+    .suppliers-table {
+        width: 100%;
+        border-collapse: collapse;
+        background: white;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        border-radius: 4px;
+        overflow: hidden;
+    }
+
+    .suppliers-table thead {
+        background-color: #f1f5f9;
+        border-bottom: 2px solid #e2e8f0;
+    }
+
+    .suppliers-table th {
+        padding: 12px 15px;
+        text-align: left;
+        font-weight: 600;
+        color: #475569;
+        font-size: 14px;
+    }
+
+    .suppliers-table tbody tr {
+        border-bottom: 1px solid #e2e8f0;
+        transition: background-color 0.2s;
+    }
+
+    .suppliers-table tbody tr:hover {
+        background-color: #f8fafc;
+    }
+
+    .suppliers-table td {
+        padding: 12px 15px;
+        font-size: 14px;
+        color: #334155;
+    }
+
+    .action-btns {
+        display: flex;
+        gap: 8px;
+    }
+
+    .btn-sm {
+        padding: 6px 12px;
+        border-radius: 3px;
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 600;
+        cursor: pointer;
+        border: none;
+        transition: all 0.2s;
+    }
+
+    .btn-edit {
+        background-color: #3b82f6;
+        color: white;
+    }
+
+    .btn-edit:hover {
+        background-color: #2563eb;
+    }
+
+    .btn-delete {
+        background-color: #ef4444;
+        color: white;
+    }
+
+    .btn-delete:hover {
+        background-color: #dc2626;
+    }
+
+    .empty-state {
+        text-align: center;
+        padding: 40px;
+        background: white;
+        border-radius: 4px;
+    }
+
+    .empty-icon {
+        font-size: 48px;
+        margin-bottom: 16px;
+    }
+
+    .empty-message {
+        font-size: 16px;
+        color: #64748b;
+        margin-bottom: 20px;
+    }
+</style>
+{% endblock %}
+
+{% block active_suppliers %}active{% endblock %}
+
+{% block content %}
+<div class="page-header">
+    <h1 class="page-title">Supplier Management</h1>
+    <a href="?show_modal=add" class="btn-primary">+ Add New Supplier</a>
+</div>
+
+{% if messages %}
+    <div style="margin-bottom: 20px;">
+        {% for message in messages %}
+            <div style="padding: 12px 15px; border-radius: 4px; margin-bottom: 10px; {% if message.tags %}background-color: {% if 'error' in message.tags %}#fee2e2{% else %}#dcfce7{% endif %}; color: {% if 'error' in message.tags %}#991b1b{% else %}#166534{% endif %};{% endif %}">
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+{% if suppliers %}
+    <table class="suppliers-table">
+        <thead>
+            <tr>
+                <th>Supplier Name</th>
+                <th>Contact Phone</th>
+                <th>Products Supplied</th>
+                <th>Total Credits</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for supplier in suppliers %}
+                <tr>
+                    <td><strong>{{ supplier.name }}</strong></td>
+                    <td>{{ supplier.phone }}</td>
+                    <td>
+                        <span style="background-color: #dbeafe; color: #1e40af; padding: 4px 8px; border-radius: 3px; font-weight: bold;">
+                            {{ supplier.products.count }} items
+                        </span>
+                    </td>
+                    <td>
+                        {% with credits=supplier.credits.all %}
+                            {% if credits %}
+                                <span style="background-color: #fef3c7; color: #92400e; padding: 4px 8px; border-radius: 3px; font-weight: bold;">
+                                    UGX {% for credit in credits %}{% if credit.balance_due > 0 %}{{ credit.balance_due|floatformat:0 }}{% endif %}{% endfor %}
+                                </span>
+                            {% else %}
+                                <span style="color: #6b7280;">No credits</span>
+                            {% endif %}
+                        {% endwith %}
+                    </td>
+                    <td>
+                        <div class="action-btns">
+                            <a href="?edit_id={{ supplier.id }}" class="btn-sm btn-edit">Edit</a>
+                            <a href="?delete_id={{ supplier.id }}" class="btn-sm btn-delete">Delete</a>
+                        </div>
+                    </td>
+                </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+{% else %}
+    <div class="empty-state">
+        <div class="empty-icon">📦</div>
+        <div class="empty-message">No suppliers registered yet. Create your first supplier to get started.</div>
+        <a href="?show_modal=add" class="btn-primary">+ Add Supplier</a>
+    </div>
+{% endif %}
+
+<!-- ADD SUPPLIER MODAL -->
+{% if display_add_modal %}
+    <div class="modal-overlay">
+        <div class="modal-box">
+            <a href="{% url 'supplier_management' %}" class="close-x">&times;</a>
+            <h2 style="margin-bottom: 20px; color: #1e293b;">Add New Supplier</h2>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="create">
+                <div class="field">
+                    <label for="name">Supplier Name *</label>
+                    <input type="text" id="name" name="name" required placeholder="e.g., ABC Hardware Supplies">
+                </div>
+                <div class="field">
+                    <label for="phone">Contact Phone *</label>
+                    <input type="tel" id="phone" name="phone" required placeholder="e.g., 0712345678">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <a href="{% url 'supplier_management' %}" style="flex: 1; padding: 10px; background-color: #e2e8f0; color: #1e293b; text-align: center; border-radius: 4px; text-decoration: none; font-weight: bold;">Cancel</a>
+                    <button type="submit" style="flex: 1; padding: 10px; background-color: #0ea5e9; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Add Supplier</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endif %}
+
+<!-- EDIT SUPPLIER MODAL -->
+{% if display_edit_modal and edit_supplier %}
+    <div class="modal-overlay">
+        <div class="modal-box">
+            <a href="{% url 'supplier_management' %}" class="close-x">&times;</a>
+            <h2 style="margin-bottom: 20px; color: #1e293b;">Edit Supplier</h2>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="update">
+                <input type="hidden" name="supplier_id" value="{{ edit_supplier.id }}">
+                <div class="field">
+                    <label for="name">Supplier Name *</label>
+                    <input type="text" id="name" name="name" required value="{{ edit_supplier.name }}">
+                </div>
+                <div class="field">
+                    <label for="phone">Contact Phone *</label>
+                    <input type="tel" id="phone" name="phone" required value="{{ edit_supplier.phone }}">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <a href="{% url 'supplier_management' %}" style="flex: 1; padding: 10px; background-color: #e2e8f0; color: #1e293b; text-align: center; border-radius: 4px; text-decoration: none; font-weight: bold;">Cancel</a>
+                    <button type="submit" style="flex: 1; padding: 10px; background-color: #0ea5e9; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Update Supplier</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endif %}
+
+<!-- DELETE SUPPLIER MODAL -->
+{% if display_delete_modal and delete_supplier %}
+    <div class="modal-overlay">
+        <div class="modal-box">
+            <a href="{% url 'supplier_management' %}" class="close-x">&times;</a>
+            <h2 style="margin-bottom: 20px; color: #1e293b;">Delete Supplier?</h2>
+            <p style="color: #64748b; margin-bottom: 20px;">Are you sure you want to delete <strong>{{ delete_supplier.name }}</strong>? This action cannot be undone.</p>
+            <form method="POST">
+                {% csrf_token %}
+                <input type="hidden" name="form_action" value="delete">
+                <input type="hidden" name="supplier_id" value="{{ delete_supplier.id }}">
+                <div style="display: flex; gap: 10px;">
+                    <a href="{% url 'supplier_management' %}" style="flex: 1; padding: 10px; background-color: #e2e8f0; color: #1e293b; text-align: center; border-radius: 4px; text-decoration: none; font-weight: bold;">Cancel</a>
+                    <button type="submit" style="flex: 1; padding: 10px; background-color: #ef4444; color: white; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Delete</button>
+                </div>
+            </form>
+        </div>
+    </div>
+{% endif %}
+
+{% endblock %}

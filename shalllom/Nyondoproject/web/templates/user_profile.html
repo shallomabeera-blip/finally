@@ -1,0 +1,368 @@
+{% extends 'base.html' %}
+
+{% block extra_head %}
+<style>
+    .page-header {
+        margin-bottom: 30px;
+    }
+
+    .page-title {
+        font-size: 28px;
+        font-weight: bold;
+        color: #1e293b;
+    }
+
+    .profile-container {
+        display: grid;
+        grid-template-columns: 300px 1fr;
+        gap: 30px;
+        max-width: 1200px;
+    }
+
+    .profile-card {
+        background: white;
+        padding: 25px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        text-align: center;
+    }
+
+    .profile-avatar {
+        width: 120px;
+        height: 120px;
+        background: linear-gradient(135deg, #0ea5e9 0%, #06b6d4 100%);
+        border-radius: 50%;
+        margin: 0 auto 15px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 48px;
+    }
+
+    .profile-name {
+        font-size: 20px;
+        font-weight: bold;
+        color: #1e293b;
+        margin-bottom: 5px;
+    }
+
+    .profile-role {
+        font-size: 13px;
+        background-color: #dbeafe;
+        color: #0c4a6e;
+        padding: 4px 8px;
+        border-radius: 3px;
+        display: inline-block;
+        margin-bottom: 15px;
+        font-weight: 600;
+    }
+
+    .profile-info {
+        text-align: left;
+        padding-top: 15px;
+        border-top: 1px solid #e2e8f0;
+    }
+
+    .profile-field {
+        margin-bottom: 12px;
+    }
+
+    .profile-field-label {
+        font-size: 12px;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        margin-bottom: 3px;
+    }
+
+    .profile-field-value {
+        font-size: 14px;
+        color: #1e293b;
+        font-weight: 500;
+    }
+
+    .content-area {
+        background: white;
+        padding: 30px;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    }
+
+    .section-title {
+        font-size: 20px;
+        font-weight: bold;
+        color: #1e293b;
+        margin-bottom: 20px;
+        border-bottom: 2px solid #e2e8f0;
+        padding-bottom: 10px;
+    }
+
+    .field {
+        margin-bottom: 20px;
+    }
+
+    .field label {
+        display: block;
+        margin-bottom: 6px;
+        font-weight: 600;
+        font-size: 14px;
+        color: #334155;
+    }
+
+    .field input {
+        width: 100%;
+        padding: 10px;
+        border: 1px solid #cbd5e1;
+        border-radius: 4px;
+        font-size: 14px;
+        color: #1e293b;
+        outline: none;
+    }
+
+    .field input:focus {
+        border-color: #38bdf8;
+        box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+    }
+
+    .btn-primary {
+        background-color: #0ea5e9;
+        color: white;
+        padding: 10px 20px;
+        border-radius: 4px;
+        border: none;
+        font-weight: bold;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background-color 0.2s;
+    }
+
+    .btn-primary:hover {
+        background-color: #0284c7;
+    }
+
+    .btn-group {
+        display: flex;
+        gap: 10px;
+        margin-top: 20px;
+    }
+
+    .btn-secondary {
+        background-color: #e2e8f0;
+        color: #1e293b;
+        padding: 10px 20px;
+        border-radius: 4px;
+        border: none;
+        font-weight: bold;
+        cursor: pointer;
+        font-size: 14px;
+        transition: background-color 0.2s;
+        flex: 1;
+    }
+
+    .btn-secondary:hover {
+        background-color: #cbd5e1;
+    }
+
+    .info-box {
+        background-color: #dbeafe;
+        border-left: 4px solid #0284c7;
+        padding: 15px;
+        border-radius: 4px;
+        margin-bottom: 20px;
+        color: #0c4a6e;
+    }
+
+    .activity-item {
+        padding: 12px;
+        border-bottom: 1px solid #e2e8f0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .activity-item:last-child {
+        border-bottom: none;
+    }
+
+    .activity-action {
+        font-weight: 600;
+        color: #1e293b;
+    }
+
+    .activity-time {
+        font-size: 12px;
+        color: #64748b;
+    }
+
+    @media (max-width: 768px) {
+        .profile-container {
+            grid-template-columns: 1fr;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="page-header">
+    <h1 class="page-title">👤 My Profile</h1>
+    <p style="color: #64748b; margin-top: 5px;">Manage your account settings and preferences</p>
+</div>
+
+{% if messages %}
+    <div style="margin-bottom: 20px;">
+        {% for message in messages %}
+            <div style="padding: 12px 15px; border-radius: 4px; margin-bottom: 10px; background-color: {% if 'error' in message.tags %}#fee2e2{% else %}#dcfce7{% endif %}; color: {% if 'error' in message.tags %}#991b1b{% else %}#166534{% endif %};">
+                {{ message }}
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<div class="profile-container">
+    <!-- PROFILE CARD (LEFT) -->
+    <div class="profile-card">
+        <div class="profile-avatar">👤</div>
+        <div class="profile-name">{{ user.get_full_name|default:user.username }}</div>
+        <div class="profile-role">{{ role_display }}</div>
+
+        <div class="profile-info">
+            <div class="profile-field">
+                <div class="profile-field-label">Username</div>
+                <div class="profile-field-value">@{{ user.username }}</div>
+            </div>
+            <div class="profile-field">
+                <div class="profile-field-label">Email</div>
+                <div class="profile-field-value">{{ user.email|default:"Not set" }}</div>
+            </div>
+            <div class="profile-field">
+                <div class="profile-field-label">Member Since</div>
+                <div class="profile-field-value">{{ user.date_joined|date:"M j, Y" }}</div>
+            </div>
+            <div class="profile-field">
+                <div class="profile-field-label">Last Login</div>
+                <div class="profile-field-value">
+                    {% if user.last_login %}
+                        {{ user.last_login|date:"M j, Y" }} at {{ user.last_login|time:"H:i" }}
+                    {% else %}
+                        Never logged in
+                    {% endif %}
+                </div>
+            </div>
+            {% if user_sales %}
+                <div class="profile-field">
+                    <div class="profile-field-label">Sales Recorded</div>
+                    <div class="profile-field-value">{{ user_sales }} transactions</div>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- CONTENT AREA (RIGHT) -->
+    <div class="content-area">
+        <!-- UPDATE PROFILE SECTION -->
+        <h2 class="section-title"> Update Profile Information</h2>
+
+        <div class="info-box">
+            <strong>Role:</strong> {{ role_display }} - All actions are logged for audit purposes.
+        </div>
+
+        <form method="POST" action="{% url 'user_profile' %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="update_profile">
+
+            <div class="field">
+                <label for="first_name">First Name</label>
+                <input type="text" id="first_name" name="first_name" value="{{ user.first_name }}" placeholder="John">
+            </div>
+
+            <div class="field">
+                <label for="last_name">Last Name</label>
+                <input type="text" id="last_name" name="last_name" value="{{ user.last_name }}" placeholder="Doe">
+            </div>
+
+            <div class="field">
+                <label for="email">Email Address</label>
+                <input type="email" id="email" name="email" value="{{ user.email }}" placeholder="john.doe@example.com">
+            </div>
+
+            <button type="submit" class="btn-primary">Save Changes</button>
+        </form>
+
+        <!-- CHANGE PASSWORD SECTION -->
+        <h2 class="section-title" style="margin-top: 40px;"> Change Password</h2>
+
+        <div class="info-box">
+            <strong>Security:</strong> Use a strong password with at least 8 characters, including uppercase, lowercase, numbers, and symbols.
+        </div>
+
+        <form method="POST" action="{% url 'user_profile' %}">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="change_password">
+
+            <div class="field">
+                <label for="old_password">Current Password *</label>
+                <input type="password" id="old_password" name="old_password" required placeholder="Enter current password">
+            </div>
+
+            <div class="field">
+                <label for="new_password">New Password *</label>
+                <input type="password" id="new_password" name="new_password" required placeholder="Enter new password (min. 8 characters)">
+            </div>
+
+            <div class="field">
+                <label for="confirm_password">Confirm New Password *</label>
+                <input type="password" id="confirm_password" name="confirm_password" required placeholder="Re-enter new password">
+            </div>
+
+            <div class="btn-group">
+                <button type="submit" class="btn-primary" style="flex: 1;">Change Password</button>
+            </div>
+        </form>
+
+        <!-- ACCOUNT ACTIVITY -->
+        <h2 class="section-title" style="margin-top: 40px;"> Account Activity</h2>
+
+        <div style="background-color: #f1f5f9; border-radius: 4px; padding: 15px;">
+            <div class="activity-item">
+                <div>
+                    <div class="activity-action">Account Created</div>
+                    <div class="activity-time">{{ user.date_joined|date:"M j, Y" }} at {{ user.date_joined|time:"H:i" }}</div>
+                </div>
+            </div>
+            <div class="activity-item">
+                <div>
+                    <div class="activity-action">Last Login</div>
+                    <div class="activity-time">
+                        {% if user.last_login %}
+                            {{ user.last_login|date:"M j, Y" }} at {{ user.last_login|time:"H:i" }}
+                        {% else %}
+                            Never
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% if user_sales %}
+                <div class="activity-item">
+                    <div>
+                        <div class="activity-action">Total Sales</div>
+                        <div class="activity-time">{{ user_sales }} transactions recorded</div>
+                    </div>
+                </div>
+            {% endif %}
+        </div>
+
+        <!-- SECURITY TIPS -->
+        <div style="margin-top: 30px; padding: 15px; background-color: #fef3c7; border-radius: 4px; border-left: 4px solid #f59e0b;">
+            <strong>🛡️ Security Tips</strong>
+            <ul style="margin-top: 10px; margin-left: 20px; font-size: 13px; color: #92400e; line-height: 1.6;">
+                <li>Change your password regularly (at least every 3 months)</li>
+                <li>Never share your login credentials with anyone</li>
+                <li>Always log out when using a shared computer</li>
+                <li>Report suspicious activity to the administrator immediately</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

@@ -115,10 +115,10 @@
                 <div class="field"><label>SKU Code:</label><input type="text" name="sku" required></div>
                 <div class="field"><label>Item Name:</label><input type="text" name="name" required></div>
                 <div class="field"><label>Technical Specifications:</label><textarea name="specifications" rows="2"></textarea></div>
-                <div class="field"><label>Cost Price (UGX):</label><input type="number" name="cost_price" required></div>
-                <div class="field"><label>Selling Price (UGX):</label><input type="number" name="selling_price" required></div>
-                <div class="field"><label>Quantity:</label><input type="number" name="quantity_in_stock" required></div>
-                <div class="field"><label>Low Stock Warning Threshold:</label><input type="number" name="low_stock_threshold" value="5" required></div>
+                <div class="field"><label>Cost Price (UGX):</label><input type="number" name="cost_price" min="0" required></div>
+                <div class="field"><label>Selling Price (UGX):</label><input type="number" name="selling_price" min="0" required></div>
+                <div class="field"><label>Quantity:</label><input type="number" name="quantity_in_stock" min="0" required></div>
+                <div class="field"><label>Low Stock Warning Threshold:</label><input type="number" name="low_stock_threshold" min="0" value="5" required></div>
                 
                 <button type="submit" class="btn" style="background: #16a34a; color: white; width: 100%;">Save New Product</button>
             </form>
@@ -157,10 +157,10 @@
                 <div class="field"><label>SKU Code:</label><input type="text" name="sku" value="{{ edit_product.sku }}" required></div>
                 <div class="field"><label>Item Name:</label><input type="text" name="name" value="{{ edit_product.name }}" required></div>
                 <div class="field"><label>Technical Specifications:</label><textarea name="specifications" rows="2">{{ edit_product.specifications }}</textarea></div>
-                <div class="field"><label>Cost Price (UGX):</label><input type="number" name="cost_price" value="{{ edit_product.cost_price }}" required></div>
-                <div class="field"><label>Selling Price (UGX):</label><input type="number" name="selling_price" value="{{ edit_product.selling_price }}" required></div>
-                <div class="field"><label>Quantity:</label><input type="number" name="quantity_in_stock" value="{{ edit_product.quantity_in_stock }}" required></div>
-                <div class="field"><label>Low Stock Warning Threshold:</label><input type="number" name="low_stock_threshold" value="{{ edit_product.low_stock_threshold }}" required></div>
+                <div class="field"><label>Cost Price (UGX):</label><input type="number" name="cost_price" min="0" value="{{ edit_product.cost_price }}" required></div>
+                <div class="field"><label>Selling Price (UGX):</label><input type="number" name="selling_price" min="0" value="{{ edit_product.selling_price }}" required></div>
+                <div class="field"><label>Quantity:</label><input type="number" name="quantity_in_stock" min="0" value="{{ edit_product.quantity_in_stock }}" required></div>
+                <div class="field"><label>Low Stock Warning Threshold:</label><input type="number" name="low_stock_threshold" min="0" value="{{ edit_product.low_stock_threshold }}" required></div>
                 
                 <button type="submit" class="btn" style="background: #2563eb; color: white; width: 100%;">Apply Changes</button>
             </form>

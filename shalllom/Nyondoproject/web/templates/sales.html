@@ -8,22 +8,23 @@
         <a href="?show_modal=new_sale" class="btn" style="background: #013220; color: white;">+ Record New Sale</a>
     </div>
 
-    # message notifications
+
     
     {% if messages %}
     <div style="margin-bottom: 20px;">
         {% for message in messages %}
-            <div style="padding: 12px; border-radius: 4px; 
-                {% if 'Failed' in message|stringformat:'s' or 'Error' in message|stringformat:'s' or 'error' in message.tags %}F
-                    background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;
-                {% else %}
-                    background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0;
-                {% endif %} font-weight: 500; margin-bottom: 8px;">
-                {{ message }}
-            </div>
+            {% if 'Failed' in message|stringformat:'s' or 'Error' in message|stringformat:'s' or 'error' in message.tags %}
+                <div style="padding: 12px; border-radius: 4px; background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-weight: 500; margin-bottom: 8px;">
+                    {{ message }}
+                </div>
+            {% else %}
+                <div style="padding: 12px; border-radius: 4px; background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; font-weight: 500; margin-bottom: 8px;">
+                    {{ message }}
+                </div>
+            {% endif %}
         {% endfor %}
     </div>
-{% endif %}
+    {% endif %}
 
 
 
@@ -70,7 +71,6 @@
     </table>
 
 
-# screen POPUP
 
     {% if display_sale_modal %}
     <div class="modal-overlay">

@@ -31,6 +31,19 @@ class Product(models.Model):
 
     def clean(self):
         super().clean()
+
+        if self.cost_price is not None and self.cost_price < 0:
+            raise ValidationError({'cost_price': 'The cost price cannot be negative.'})
+
+        if self.selling_price is not None and self.selling_price < 0:
+            raise ValidationError({'selling_price': 'The selling price cannot be negative.'})
+
+        if self.quantity_in_stock < 0:
+            raise ValidationError({'quantity_in_stock': 'The stock quantity cannot be negative.'})
+
+        if self.low_stock_threshold < 0:
+            raise ValidationError({'low_stock_threshold': 'The low stock threshold cannot be negative.'})
+
         if self.selling_price and self.cost_price:
             if self.selling_price <= self.cost_price:
                 raise ValidationError({'selling_price': 'The selling price must be strictly greater than the cost price.'})
@@ -54,6 +67,9 @@ class DepositAccount(models.Model):
 
     def clean(self):
         super().clean()
+
+        if self.current_balance < 0:
+            raise ValidationError({'current_balance': 'The initial balance cannot be negative.'})
         
         # 1. STRICT UGANDAN PHONE NUMBER VALIDATION RULE
         # Matches: +2567... (13 chars) or 07... (10 chars) for standard MTN/Airtel networks
@@ -105,6 +121,27 @@ class Sale(models.Model):
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHODS, default='CASH')
     date_processed = models.DateTimeField(auto_now_add=True)
 
+    def clean(self):
+        super().clean()
+
+        if self.quantity_sold <= 0:
+            raise ValidationError({'quantity_sold': 'Quantity sold must be greater than zero.'})
+
+        if self.delivery_distance_km < 0:
+            raise ValidationError({'delivery_distance_km': 'Delivery distance cannot be negative.'})
+
+        if self.unit_price < 0:
+            raise ValidationError({'unit_price': 'Unit price cannot be negative.'})
+
+        if self.product_total < 0:
+            raise ValidationError({'product_total': 'Product total cannot be negative.'})
+
+        if self.transport_charge < 0:
+            raise ValidationError({'transport_charge': 'Transport charge cannot be negative.'})
+
+        if self.grand_total < 0:
+            raise ValidationError({'grand_total': 'Grand total cannot be negative.'})
+
     def __str__(self):
         return f"Invoice #{self.id} - {self.product.name}"
     
@@ -116,6 +153,18 @@ class SupplierCredit(models.Model):
     balance_due = models.DecimalField(max_digits=12, decimal_places=2, verbose_name="Remaining Balance (UGX)")
     due_date = models.DateField(verbose_name="Repayment Deadline")
     date_logged = models.DateTimeField(auto_now_add=True)
+
+    def clean(self):
+        super().clean()
+
+        if self.total_amount < 0:
+            raise ValidationError({'total_amount': 'The total amount cannot be negative.'})
+
+        if self.amount_paid < 0:
+            raise ValidationError({'amount_paid': 'The amount paid cannot be negative.'})
+
+        if self.balance_due is not None and self.balance_due < 0:
+            raise ValidationError({'balance_due': 'The balance due cannot be negative.'})
 
     def save(self, *args, **kwargs):
         # Automatically calculate remaining balance before storing in SQLite
@@ -139,3 +188,34 @@ class User(AbstractUser):
 
     def __str__(self):
         return f"{self.username} ({self.get_role_display()})"
+
+
+class SystemSettings(models.Model):
+    """System-wide configuration settings"""
+    business_name = models.CharField(max_length=255, default='NYONDO General Hardware LTD')
+    business_phone = models.CharField(max_length=20, default='+256-XXX-XXX-XXXX')
+    business_email = models.EmailField(default='info@nyondohardware.com')
+    
+    transport_rate_per_km = models.DecimalField(max_digits=8, decimal_places=2, default=3000.00, 
+                                               verbose_name="Transport Rate (UGX per km)")
+    free_delivery_threshold = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True,
+                                                 verbose_name="Free Delivery Threshold (UGX)")
+    
+    default_low_stock_threshold = models.IntegerField(default=5, verbose_name="Default Low Stock Alert")
+    currency = models.CharField(max_length=10, default='UGX')
+    timezone = models.CharField(max_length=50, default='UTC+3')
+    
+    last_updated = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        verbose_name = "System Settings"
+        verbose_name_plural = "System Settings"
+    
+    def __str__(self):
+        return "System Configuration"
+    
+    @classmethod
+    def get_settings(cls):
+        """Get or create the single system settings instance"""
+        obj, created = cls.objects.get_or_create(pk=1)
+        return obj

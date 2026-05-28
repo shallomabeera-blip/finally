@@ -1,35 +1,68 @@
+from functools import wraps
+
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib import messages
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.decorators import login_required, user_passes_test
 from .models import *
-from decimal import Decimal
 from django.db import transaction 
 from datetime import date, date, datetime
 from django.db.models import Sum, F, Count
 from django.contrib.auth import get_user_model
 
 
+def add_validation_messages(request, validation_error):
+    if hasattr(validation_error, 'message_dict'):
+        for field, errors in validation_error.message_dict.items():
+            for error in errors:
+                messages.error(request, f"{field.replace('_', ' ').title()}: {error}")
+    else:
+        for error in validation_error.messages:
+            messages.error(request, error)
+
+
+def role_home(role):
+    if role == 'STORE_MANAGER':
+        return 'stock'
+    if role == 'SALES_ATTENDANT':
+        return 'sales'
+    return 'reports'
+
+
+def require_role(*allowed_roles):
+    def decorator(view_func):
+        @wraps(view_func)
+        def wrapper(request, *args, **kwargs):
+            if not request.user.is_authenticated:
+                return redirect('login')
+
+            user_role = getattr(request.user, 'role', '')
+            if user_role == 'ADMIN' or user_role in allowed_roles:
+                return view_func(request, *args, **kwargs)
+
+            messages.error(request, "Access denied: you do not have permission to view this section.")
+            return redirect(role_home(user_role))
+
+        return wrapper
+
+    return decorator
+
+
 def index(request):
     return render(request, 'index.html')
-@login_required(login_url='/')
+@require_role('ADMIN')
 def user_management(request):
-    """ Renders the active personnel ledger list and handling tab frames """
-    # AUTHENTICATION GUARD: Restrict access strictly to ADMIN role profiles
-    if getattr(request.user, 'role', '') != 'ADMIN':
-        raise PermissionDenied  # Redirects to HTTP 403 Forbidden page
-
-    users = CustomUser.objects.all().order_by('-is_active', 'username')
-    return render(request, "users.html", {
-        "users": users
+    users = User.objects.all().order_by('username')
+    return render(request, "user.html", {
+        'employees': users,
+        'role_choices': User.ROLE_CHOICES,
     })
 
 
 
 
-# @login_required(login_url='login')
+@require_role('ADMIN')
 def admin_dashboard(request):
     user = request.user
 
@@ -54,6 +87,9 @@ def admin_dashboard(request):
         context['dashboard_recent_sales'] = Sale.objects.all().select_related('product').order_by('-date_processed')[:5]
 
     return render(request, 'admin_dashboard.html', context)
+
+
+@require_role('STORE_MANAGER', 'ADMIN')
 def stock(request):
     if request.method == 'POST':
         form_action = request.POST.get('form_action')
@@ -83,45 +119,57 @@ def stock(request):
             quantity = int(request.POST.get('quantity_in_stock', '0'))
             threshold = int(request.POST.get('low_stock_threshold', '5'))
 
-            if selling_price <= cost_price:
-                messages.error(request, "Error: Selling price must exceed cost price.")
-                return redirect('/stock/?show_modal=add')
-            elif Product.objects.filter(sku=sku).exists():
+            if Product.objects.filter(sku=sku).exists():
                 messages.error(request, "Error: This SKU is already registered.")
                 return redirect('/stock/?show_modal=add')
-            else:
-                Product.objects.create(
-                    supplier_id=supplier_id, category_id=category_id, sku=sku, name=name,
-                    specifications=specifications, cost_price=cost_price, 
-                    selling_price=selling_price, quantity_in_stock=quantity, low_stock_threshold=threshold
-                )
+
+            product = Product(
+                supplier_id=supplier_id,
+                category_id=category_id,
+                sku=sku,
+                name=name,
+                specifications=specifications,
+                cost_price=cost_price,
+                selling_price=selling_price,
+                quantity_in_stock=quantity,
+                low_stock_threshold=threshold,
+            )
+
+            try:
+                product.full_clean()
+                product.save()
                 messages.success(request, "Product added successfully!")
                 return redirect('stock')
+            except ValidationError as e:
+                add_validation_messages(request, e)
+                return redirect('/stock/?show_modal=add')
 
         # ACTION: UPDATE PRODUCT
         elif form_action == 'update':
             product_id = request.POST.get('product_id')
             product = get_object_or_404(Product, id=product_id)
-            
+
             cost_price = Decimal(request.POST.get('cost_price', '0'))
             selling_price = Decimal(request.POST.get('selling_price', '0'))
 
-            if selling_price <= cost_price:
-                messages.error(request, "Update Failed: Selling price must exceed cost price.")
-                return redirect(f'/stock/?edit_id={product_id}')
-            else:
-                product.supplier_id = request.POST.get('supplier')
-                product.category_id = request.POST.get('category')
-                product.sku = request.POST.get('sku', '').strip()
-                product.name = request.POST.get('name', '').strip()
-                product.specifications = request.POST.get('specifications', '').strip()
-                product.cost_price = cost_price
-                product.selling_price = selling_price
-                product.quantity_in_stock = int(request.POST.get('quantity_in_stock', '0'))
-                product.low_stock_threshold = int(request.POST.get('low_stock_threshold', '5'))
+            product.supplier_id = request.POST.get('supplier')
+            product.category_id = request.POST.get('category')
+            product.sku = request.POST.get('sku', '').strip()
+            product.name = request.POST.get('name', '').strip()
+            product.specifications = request.POST.get('specifications', '').strip()
+            product.cost_price = cost_price
+            product.selling_price = selling_price
+            product.quantity_in_stock = int(request.POST.get('quantity_in_stock', '0'))
+            product.low_stock_threshold = int(request.POST.get('low_stock_threshold', '5'))
+
+            try:
+                product.full_clean()
                 product.save()
                 messages.success(request, f"{product.name} updated successfully!")
                 return redirect('stock')
+            except ValidationError as e:
+                add_validation_messages(request, e)
+                return redirect(f'/stock/?edit_id={product_id}')
 
         # ACTION: DELETE PRODUCT
         elif form_action == 'delete':
@@ -157,6 +205,7 @@ def stock(request):
 
 
 
+@require_role('ADMIN')
 def deposit(request):
     if request.method == 'POST':
         form_action = request.POST.get('form_action')
@@ -230,6 +279,8 @@ def deposit(request):
 
     return render(request, 'deposits.html', context)
 
+
+@require_role('SALES_ATTENDANT', 'ADMIN')
 def sales(request):
     TRANSPORT_RATE_PER_KM = Decimal('3000.00')
 
@@ -247,8 +298,15 @@ def sales(request):
         distance_raw = request.POST.get('delivery_distance_km', '').strip()
 
         # Safe parsing fallback for POST integers/decimals
-        qty_sold = int(qty_sold_raw) if qty_sold_raw else 0
-        distance = Decimal(distance_raw) if distance_raw else Decimal('0')
+        try:
+            qty_sold = int(qty_sold_raw) if qty_sold_raw else 0
+        except (TypeError, ValueError):
+            qty_sold = 0
+
+        try:
+            distance = Decimal(distance_raw) if distance_raw else Decimal('0')
+        except (TypeError, ValueError):
+            distance = Decimal('0')
 
         # Convert boolean state to clean string component parameter mappings for redirects
         t_param = 'on' if transport_toggle else ''
@@ -259,10 +317,19 @@ def sales(request):
 
         product = get_object_or_404(Product, id=product_id)
 
-      
+        try:
+            product.full_clean()
+        except ValidationError as e:
+            add_validation_messages(request, e)
+            return redirect(f'/sales/?show_modal=new_sale&product={product_id}&quantity_sold={qty_sold}&requires_transport={t_param}&delivery_distance_km={distance}')
+
         if qty_sold <= 0:
             messages.error(request, "Transaction Failed: Quantity must be greater than zero.")
             return redirect(f'/sales/?show_modal=new_sale&product={product_id}&requires_transport={t_param}&delivery_distance_km={distance}')
+
+        if distance < 0:
+            messages.error(request, "Transaction Failed: Delivery distance cannot be negative.")
+            return redirect(f'/sales/?show_modal=new_sale&product={product_id}&quantity_sold={qty_sold}&requires_transport={t_param}&delivery_distance_km={distance}')
 
         if product.quantity_in_stock < qty_sold:
             messages.error(request, f"Transaction Failed: Insufficient stock! Only {product.quantity_in_stock} left.")
@@ -278,13 +345,18 @@ def sales(request):
             if not account_id:
                 messages.error(request, "Transaction Failed: Select a deposit scheme profile.")
                 return redirect(f'/sales/?show_modal=new_sale&product={product_id}&quantity_sold={qty_sold}&requires_transport={t_param}&delivery_distance_km={distance}')
-            
+
             customer_account = get_object_or_404(DepositAccount, id=account_id)
+            try:
+                customer_account.full_clean()
+            except ValidationError as e:
+                add_validation_messages(request, e)
+                return redirect(f'/sales/?show_modal=new_sale&product={product_id}&quantity_sold={qty_sold}&customer_account={account_id}&requires_transport={t_param}&delivery_distance_km={distance}')
+
             if customer_account.current_balance < grand_total:
                 messages.error(request, f"Transaction Failed: Insufficient customer funds! Balance is UGX {customer_account.current_balance}.")
                 return redirect(f'/sales/?show_modal=new_sale&product={product_id}&quantity_sold={qty_sold}&customer_account={account_id}&requires_transport={t_param}&delivery_distance_km={distance}')
 
-        
         with transaction.atomic():
             product.quantity_in_stock -= qty_sold
             product.save()
@@ -293,12 +365,25 @@ def sales(request):
                 customer_account.current_balance -= grand_total
                 customer_account.save()
 
-            sale_invoice = Sale.objects.create(
-                product=product, customer_account=customer_account, quantity_sold=qty_sold, 
-                unit_price=product.selling_price, product_total=product_total, requires_transport=transport_toggle,
-                delivery_distance_km=distance, transport_charge=transport_charge,
-                grand_total=grand_total, payment_method=payment_method
+            sale_invoice = Sale(
+                product=product,
+                customer_account=customer_account,
+                quantity_sold=qty_sold,
+                unit_price=product.selling_price,
+                product_total=product_total,
+                requires_transport=transport_toggle,
+                delivery_distance_km=distance,
+                transport_charge=transport_charge,
+                grand_total=grand_total,
+                payment_method=payment_method,
             )
+
+            try:
+                sale_invoice.full_clean()
+                sale_invoice.save()
+            except ValidationError as e:
+                add_validation_messages(request, e)
+                return redirect(f'/sales/?show_modal=new_sale&product={product_id}&quantity_sold={qty_sold}&customer_account={account_id or ""}&requires_transport={t_param}&delivery_distance_km={distance}')
 
             messages.success(request, "Sale finalized successfully!")
             return redirect(f'/sales/?view_receipt_id={sale_invoice.id}')
@@ -356,6 +441,8 @@ def sales(request):
 
     return render(request, 'sales.html', context)
 
+
+@require_role('ADMIN')
 def credit(request):
 
     if request.method == 'POST':
@@ -369,7 +456,6 @@ def credit(request):
             amt_paid = Decimal(request.POST.get('amount_paid', '0'))
             due_date_str = request.POST.get('due_date')
 
-            
             try:
                 due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
             except ValueError:
@@ -384,12 +470,22 @@ def credit(request):
                 messages.error(request, "Error: This supplier invoice reference number is already logged.")
                 return redirect('/credit/?show_modal=add_credit')
 
-            SupplierCredit.objects.create(
-                supplier_id=supplier_id, invoice_number=invoice_num,
-                total_amount=total_amt, amount_paid=amt_paid, due_date=due_date
+            credit_record = SupplierCredit(
+                supplier_id=supplier_id,
+                invoice_number=invoice_num,
+                total_amount=total_amt,
+                amount_paid=amt_paid,
+                due_date=due_date,
             )
-            messages.success(request, "New supplier credit transaction logged successfully!")
-            return redirect('credit')
+
+            try:
+                credit_record.full_clean()
+                credit_record.save()
+                messages.success(request, "New supplier credit transaction logged successfully!")
+                return redirect('credit')
+            except ValidationError as e:
+                add_validation_messages(request, e)
+                return redirect('/credit/?show_modal=add_credit')
 
         # ACTION B: RECORD REPAYMENT/CLEAR BALANCES
         elif form_action == 'pay_credit':
@@ -432,6 +528,7 @@ def credit(request):
     return render(request, 'credit.html', context)
 
 
+@require_role('ADMIN')
 def reports(request):
    
     today = date.today()
@@ -484,14 +581,7 @@ def login_view(request):
         if user is not None:
             login(request, user)
             messages.success(request, f"Welcome back, {user.username}!")
-            
-            # Smart Redirecting based on user roles
-            if user.role == 'SALES_ATTENDANT':
-                return redirect('sales')
-            elif user.role == 'STORE_MANAGER':
-                return redirect('stock')
-            else:
-                return redirect('reports')
+            return redirect(role_home(user.role))
         else:
             messages.error(request, "Access Denied: Invalid username or security password.")
             return redirect('login')
@@ -573,3 +663,343 @@ def user_management(request):
         context['display_delete_modal'] = True
 
     return render(request, 'user.html', context)
+
+
+# ===================== PAGE 1: SUPPLIER MANAGEMENT =====================
+@require_role('STORE_MANAGER', 'ADMIN')
+def supplier_management(request):
+    if request.method == 'POST':
+        form_action = request.POST.get('form_action')
+
+        if form_action == 'create':
+            name = request.POST.get('name', '').strip()
+            phone = request.POST.get('phone', '').strip()
+
+            if Supplier.objects.filter(name__iexact=name).exists():
+                messages.error(request, "Error: This supplier name already exists.")
+                return redirect('/suppliers/?show_modal=add')
+
+            Supplier.objects.create(name=name, phone=phone)
+            messages.success(request, f"Supplier '{name}' added successfully!")
+            return redirect('supplier_management')
+
+        elif form_action == 'update':
+            supplier_id = request.POST.get('supplier_id')
+            supplier = get_object_or_404(Supplier, id=supplier_id)
+            
+            name = request.POST.get('name', '').strip()
+            phone = request.POST.get('phone', '').strip()
+
+            if Supplier.objects.filter(name__iexact=name).exclude(id=supplier_id).exists():
+                messages.error(request, "Error: This supplier name already exists.")
+                return redirect(f'/suppliers/?edit_id={supplier_id}')
+
+            supplier.name = name
+            supplier.phone = phone
+            supplier.save()
+            messages.success(request, f"Supplier '{name}' updated successfully!")
+            return redirect('supplier_management')
+
+        elif form_action == 'delete':
+            supplier_id = request.POST.get('supplier_id')
+            supplier = get_object_or_404(Supplier, id=supplier_id)
+            name = supplier.name
+            supplier.delete()
+            messages.success(request, f"Supplier '{name}' removed completely.")
+            return redirect('supplier_management')
+
+    suppliers = Supplier.objects.all().order_by('name')
+    context = {'suppliers': suppliers}
+
+    if request.GET.get('show_modal') == 'add':
+        context['display_add_modal'] = True
+
+    edit_id = request.GET.get('edit_id')
+    if edit_id:
+        context['edit_supplier'] = get_object_or_404(Supplier, id=edit_id)
+        context['display_edit_modal'] = True
+
+    delete_id = request.GET.get('delete_id')
+    if delete_id:
+        context['delete_supplier'] = get_object_or_404(Supplier, id=delete_id)
+        context['display_delete_modal'] = True
+
+    return render(request, 'supplier_management.html', context)
+
+
+# ===================== PAGE 2: DETAILED INVENTORY REPORTS =====================
+@require_role('STORE_MANAGER', 'ADMIN')
+def inventory_reports(request):
+    products = Product.objects.all().select_related('supplier', 'category').order_by('name')
+    
+    total_inventory_value = sum(
+        p.quantity_in_stock * p.cost_price for p in products
+    )
+    
+    total_potential_value = sum(
+        p.quantity_in_stock * p.selling_price for p in products
+    )
+    
+    total_profit_potential = total_potential_value - total_inventory_value
+    
+    low_stock_products = products.filter(
+        quantity_in_stock__lte=models.F('low_stock_threshold')
+    ).order_by('quantity_in_stock')
+    
+    high_value_products = products.order_by('-quantity_in_stock')[:10]
+    
+    product_profitability = [
+        {
+            'product': p,
+            'profit_per_unit': p.selling_price - p.cost_price,
+            'total_profit_potential': (p.selling_price - p.cost_price) * p.quantity_in_stock
+        }
+        for p in products
+    ]
+    product_profitability.sort(key=lambda x: x['total_profit_potential'], reverse=True)
+    
+    categories = Category.objects.all()
+    category_stats = []
+    for cat in categories:
+        cat_products = products.filter(category=cat)
+        cat_value = sum(p.quantity_in_stock * p.cost_price for p in cat_products)
+        category_stats.append({
+            'category': cat,
+            'product_count': cat_products.count(),
+            'total_value': cat_value,
+            'items_in_stock': sum(p.quantity_in_stock for p in cat_products)
+        })
+    
+    context = {
+        'products': products,
+        'total_inventory_value': total_inventory_value,
+        'total_potential_value': total_potential_value,
+        'total_profit_potential': total_profit_potential,
+        'low_stock_products': low_stock_products,
+        'product_profitability': product_profitability[:15],
+        'category_stats': category_stats,
+        'today': date.today(),
+    }
+
+    return render(request, 'inventory_reports.html', context)
+
+
+# ===================== PAGE 3: CREDIT AGING REPORT =====================
+@require_role('ADMIN')
+def credit_aging(request):
+    today = datetime.now().date()
+    credits = SupplierCredit.objects.all().select_related('supplier').order_by('due_date')
+    
+    # Categorize by aging buckets
+    overdue = []
+    due_soon = []  # 1-30 days
+    upcoming = []  # 31-60 days
+    future = []    # 60+ days
+    paid = []      # balance_due = 0
+    
+    for credit in credits:
+        if credit.balance_due == 0:
+            paid.append(credit)
+        else:
+            days_overdue = (today - credit.due_date).days
+            if days_overdue > 0:
+                overdue.append({'credit': credit, 'days': days_overdue})
+            elif days_overdue > -30:
+                due_soon.append({'credit': credit, 'days': abs(days_overdue)})
+            elif days_overdue > -60:
+                upcoming.append({'credit': credit, 'days': abs(days_overdue)})
+            else:
+                future.append({'credit': credit, 'days': abs(days_overdue)})
+    
+    # Summary statistics
+    total_outstanding = SupplierCredit.objects.filter(balance_due__gt=0).aggregate(
+        total=Sum('balance_due')
+    )['total'] or 0
+    
+    supplier_summary = []
+    for supplier in Supplier.objects.all():
+        supplier_credits = SupplierCredit.objects.filter(supplier=supplier)
+        total_owed = supplier_credits.filter(balance_due__gt=0).aggregate(
+            total=Sum('balance_due')
+        )['total'] or 0
+        if total_owed > 0:
+            supplier_summary.append({
+                'supplier': supplier,
+                'total_owed': total_owed,
+                'credit_count': supplier_credits.count()
+            })
+    
+    context = {
+        'overdue': sorted(overdue, key=lambda x: x['days'], reverse=True),
+        'due_soon': sorted(due_soon, key=lambda x: x['days']),
+        'upcoming': sorted(upcoming, key=lambda x: x['days']),
+        'future': sorted(future, key=lambda x: x['days']),
+        'paid': paid,
+        'total_outstanding': total_outstanding,
+        'supplier_summary': supplier_summary,
+        'today': today,
+    }
+
+    return render(request, 'credit_aging.html', context)
+
+
+# ===================== PAGE 5: SETTINGS/CONFIGURATION =====================
+@require_role('ADMIN')
+def settings(request):
+    # Get or create system settings
+    settings_obj = SystemSettings.get_settings()
+    
+    if request.method == 'POST':
+        # Update business info
+        settings_obj.business_name = request.POST.get('business_name', settings_obj.business_name)
+        settings_obj.business_phone = request.POST.get('business_phone', settings_obj.business_phone)
+        settings_obj.business_email = request.POST.get('business_email', settings_obj.business_email)
+        
+        # Update transport settings
+        try:
+            transport_rate = Decimal(request.POST.get('transport_rate', settings_obj.transport_rate_per_km))
+            settings_obj.transport_rate_per_km = transport_rate
+        except (ValueError, TypeError):
+            pass
+        
+        # Update free delivery threshold
+        free_delivery = request.POST.get('free_delivery_threshold', '')
+        if free_delivery:
+            try:
+                settings_obj.free_delivery_threshold = Decimal(free_delivery)
+            except (ValueError, TypeError):
+                pass
+        
+        # Update system preferences
+        try:
+            settings_obj.default_low_stock_threshold = int(request.POST.get('low_stock_default', settings_obj.default_low_stock_threshold))
+        except (ValueError, TypeError):
+            pass
+        
+        settings_obj.save()
+        messages.success(request, "Settings updated successfully!")
+        return redirect('settings')
+    
+    context = {
+        'transport_rate': settings_obj.transport_rate_per_km,
+        'business_name': settings_obj.business_name,
+        'business_phone': settings_obj.business_phone,
+        'business_email': settings_obj.business_email,
+        'free_delivery_threshold': settings_obj.free_delivery_threshold,
+        'low_stock_default': settings_obj.default_low_stock_threshold,
+        'currency': settings_obj.currency,
+        'timezone': settings_obj.timezone,
+    }
+
+    return render(request, 'settings.html', context)
+
+
+# ===================== PAGE 6: USER PROFILE =====================
+@require_role('SALES_ATTENDANT', 'STORE_MANAGER', 'ADMIN')
+def user_profile(request):
+    user = request.user
+    
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        
+        if action == 'update_profile':
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+            email = request.POST.get('email', '').strip()
+            
+            user.first_name = first_name
+            user.last_name = last_name
+            user.email = email
+            user.save()
+            
+            messages.success(request, "Profile updated successfully!")
+            return redirect('user_profile')
+        
+        elif action == 'change_password':
+            old_password = request.POST.get('old_password', '')
+            new_password = request.POST.get('new_password', '')
+            confirm_password = request.POST.get('confirm_password', '')
+            
+            if not user.check_password(old_password):
+                messages.error(request, "Current password is incorrect.")
+                return redirect('user_profile')
+            
+            if new_password != confirm_password:
+                messages.error(request, "New passwords do not match.")
+                return redirect('user_profile')
+            
+            if len(new_password) < 8:
+                messages.error(request, "Password must be at least 8 characters long.")
+                return redirect('user_profile')
+            
+            user.set_password(new_password)
+            user.save()
+            
+            messages.success(request, "Password changed successfully!")
+            return redirect('login')
+    
+    # Get user activity
+    user_sales = Sale.objects.filter(id__gte=1).count() if user.role == 'SALES_ATTENDANT' else None
+    
+    context = {
+        'user': user,
+        'role_display': user.get_role_display(),
+        'user_sales': user_sales,
+    }
+
+    return render(request, 'user_profile.html', context)
+
+
+# ===================== PAGE 7: SALES HISTORY & RECEIPTS =====================
+@require_role('SALES_ATTENDANT', 'ADMIN')
+def sales_history(request):
+    # Get all sales with related data
+    sales = Sale.objects.all().select_related('product', 'customer_account').order_by('-date_processed')
+    
+    # Summary statistics
+    total_sales_count = sales.count()
+    total_revenue = sales.aggregate(total=Sum('grand_total'))['total'] or Decimal('0')
+    total_transport_revenue = sales.aggregate(total=Sum('transport_charge'))['total'] or Decimal('0')
+    
+    # Payment method breakdown
+    cash_sales = sales.filter(payment_method='CASH').count()
+    deposit_sales = sales.filter(payment_method='DEPOSIT_SCHEME').count()
+    
+    # Filter options
+    payment_filter = request.GET.get('payment_method', '')
+    date_filter = request.GET.get('date_from', '')
+    
+    if payment_filter:
+        sales = sales.filter(payment_method=payment_filter)
+    
+    if date_filter:
+        try:
+            filter_date = datetime.strptime(date_filter, '%Y-%m-%d').date()
+            sales = sales.filter(date_processed__date=filter_date)
+        except ValueError:
+            pass
+    
+    # Pagination simulation - show latest 100
+    sales_display = sales[:100]
+    
+    # Get system settings for transport rate
+    system_settings = SystemSettings.get_settings()
+    
+    context = {
+        'sales': sales_display,
+        'total_sales_count': total_sales_count,
+        'total_revenue': total_revenue,
+        'total_transport_revenue': total_transport_revenue,
+        'cash_sales': cash_sales,
+        'deposit_sales': deposit_sales,
+        'today': date.today(),
+        'transport_rate': system_settings.transport_rate_per_km,
+    }
+    
+    # Handle receipt view modal
+    receipt_id = request.GET.get('receipt_id')
+    if receipt_id:
+        context['receipt'] = get_object_or_404(Sale, id=receipt_id)
+        context['display_receipt_modal'] = True
+    
+    return render(request, 'sales_history.html', context)

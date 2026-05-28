@@ -32,5 +32,13 @@ urlpatterns = [
     path('credit/', views.credit, name='credit'),
     path('reports/', views.reports, name='reports'),
     path('users/', views.user_management, name='user_management'),
+    
+    # New Pages
+    path('suppliers/', views.supplier_management, name='supplier_management'),
+    path('inventory-reports/', views.inventory_reports, name='inventory_reports'),
+    path('credit-aging/', views.credit_aging, name='credit_aging'),
+    path('settings/', views.settings, name='settings'),
+    path('profile/', views.user_profile, name='user_profile'),
+    path('sales-history/', views.sales_history, name='sales_history'),
 ]
 
