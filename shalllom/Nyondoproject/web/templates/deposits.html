@@ -71,26 +71,28 @@
                 
                 <div class="field">
                     <label>Account Number (Unique reference):</label>
-                    <input type="text" name="account_number" placeholder="E.g., NYD-ACC-101" required>
+                    <input type="text" name="account_number" placeholder="E.g., NYD-ACC-101" value="{{ form_data.account_number }}" required>
                 </div>
                 <div class="field">
                     <label>Full Customer Name:</label>
-                    <input type="text" name="customer_name" required>
+                    <input type="text" name="customer_name" value="{{ form_data.customer_name }}" required>
                 </div>
                 <div class="field">
                     <label>Ugandan Phone Number:</label>
-                    <input type="text" name="phone_number" placeholder="E.g., 0772123456" required>
+                    <input type="text" name="phone_number" placeholder="E.g., 0772123456 or +256772123456" value="{{ form_data.phone_number }}" required>
+                    <small style="color: #64748b; display: block; margin-top: 4px;">Format: 077XXXXXXXX or +256772XXXXXXX</small>
                 </div>
                 <div class="field">
                     <label>National ID Card NIN (14 characters):</label>
-                    <input type="text" name="national_id_nin" placeholder="E.g., CM950XXXXXXXXX" required>
+                    <input type="text" name="national_id_nin" placeholder="E.g., CM950XXXXXXXXX" value="{{ form_data.national_id_nin }}" required>
+                    <small style="color: #64748b; display: block; margin-top: 4px;">Format: CM or CF followed by 12 alphanumeric characters</small>
                 </div>
                 <div class="field">
                     <label>Initial Cash Deposit (UGX):</label>
-                    <input type="number" name="initial_balance" min="0" value="0" required>
+                    <input type="number" name="initial_balance" min="0" value="{{ form_data.initial_balance }}" required>
                 </div>
                 
-                <button type="submit" class="btn" style="background: #0284c7; color: white; width: 100%; font-size: 15px;">
+                <button type="submit" class="btn" style="background: #013220; color: white; width: 100%; font-size: 15px;">
                     Save Profile & Issue Ledger Account
                 </button>
             </form>

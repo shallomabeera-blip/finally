@@ -158,22 +158,22 @@
 
 <div class="page-header">
     <h1 class="page-title">Credit Aging Report</h1>
-    <p style="color: #64748b; margin-top: 5px;">As of {{ today|date:"F j, Y" }}</p>
+    <!-- <p style="color: #64748b; margin-top: 5px;">As of {{ today|date:"F j, Y" }}</p> -->
 </div>
 
 <!-- TOTAL OUTSTANDING ALERT -->
 {% if total_outstanding > 0 %}
     <div class="alert-box alert-danger">
-        <strong>⚠️ Outstanding Balance Alert:</strong> Total outstanding supplier credit: <strong>UGX {% widthratio total_outstanding 1 0|floatformat:0 %}</strong>
+        <strong>Outstanding Balance Alert:</strong> Total outstanding supplier credit: <strong>UGX {{ total_outstanding|floatformat:0 }}</strong>
     </div>
 {% else %}
     <div class="alert-box alert-info">
-        ✓ All supplier credits are fully paid!
+        All supplier credits are fully paid!
     </div>
 {% endif %}
 
 <!-- OVERDUE PAYMENTS -->
-<h3 class="section-title">🔴 Overdue Payments ({{ overdue|length }})</h3>
+<h3 class="section-title">Overdue Payments ({{ overdue|length }})</h3>
 {% if overdue %}
     <div class="alert-box alert-danger">
         <strong>URGENT:</strong> {{ overdue|length }} invoice(s) are overdue and require immediate attention.
@@ -195,17 +195,17 @@
                     <td>{{ item.credit.invoice_number }}</td>
                     <td>{{ item.credit.due_date|date:"M d, Y" }}</td>
                     <td><span class="badge badge-overdue">{{ item.days }} days</span></td>
-                    <td class="currency">UGX {% widthratio item.credit.balance_due 1 0|floatformat:0 %}</td>
+                    <td class="currency">UGX {{ item.credit.balance_due|floatformat:0 }}</td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
 {% else %}
-    <p style="color: #64748b;">No overdue payments 🎉</p>
+    <p style="color: #64748b;">No overdue payments</p>
 {% endif %}
 
 <!-- DUE SOON (1-30 DAYS) -->
-<h3 class="section-title">🟡 Due Soon - 1 to 30 Days ({{ due_soon|length }})</h3>
+<h3 class="section-title">Due Soon - 1 to 30 Days ({{ due_soon|length }})</h3>
 {% if due_soon %}
     <div class="alert-box alert-warning">
         {{ due_soon|length }} invoice(s) are due within the next 30 days.
@@ -227,7 +227,7 @@
                     <td>{{ item.credit.invoice_number }}</td>
                     <td>{{ item.credit.due_date|date:"M d, Y" }}</td>
                     <td><span class="badge badge-due">{{ item.days }} days</span></td>
-                    <td class="currency">UGX {% widthratio item.credit.balance_due 1 0|floatformat:0 %}</td>
+                    <td class="currency">UGX {{ item.credit.balance_due|floatformat:0 }}</td>
                 </tr>
             {% endfor %}
         </tbody>
@@ -237,7 +237,7 @@
 {% endif %}
 
 <!-- UPCOMING (31-60 DAYS) -->
-<h3 class="section-title">🔵 Upcoming - 31 to 60 Days ({{ upcoming|length }})</h3>
+<h3 class="section-title">Upcoming - 31 to 60 Days ({{ upcoming|length }})</h3>
 {% if upcoming %}
     <table class="table">
         <thead>
@@ -256,7 +256,7 @@
                     <td>{{ item.credit.invoice_number }}</td>
                     <td>{{ item.credit.due_date|date:"M d, Y" }}</td>
                     <td><span class="badge badge-upcoming">{{ item.days }} days</span></td>
-                    <td class="currency">UGX {% widthratio item.credit.balance_due 1 0|floatformat:0 %}</td>
+                    <td class="currency">UGX {{ item.credit.balance_due|floatformat:0 }}</td>
                 </tr>
             {% endfor %}
         </tbody>
@@ -266,7 +266,7 @@
 {% endif %}
 
 <!-- FUTURE (60+ DAYS) -->
-<h3 class="section-title">🟢 Future - 60+ Days ({{ future|length }})</h3>
+<h3 class="section-title">Future - 60+ Days ({{ future|length }})</h3>
 {% if future %}
     <table class="table">
         <thead>
@@ -285,7 +285,7 @@
                     <td>{{ item.credit.invoice_number }}</td>
                     <td>{{ item.credit.due_date|date:"M d, Y" }}</td>
                     <td><span class="badge badge-future">{{ item.days }} days</span></td>
-                    <td class="currency">UGX {% widthratio item.credit.balance_due 1 0|floatformat:0 %}</td>
+                    <td class="currency">UGX {{ item.credit.balance_due|floatformat:0 }}</td>
                 </tr>
             {% endfor %}
         </tbody>
@@ -295,7 +295,7 @@
 {% endif %}
 
 <!-- FULLY PAID INVOICES -->
-<h3 class="section-title">✓ Fully Paid Invoices ({{ paid|length }})</h3>
+<h3 class="section-title">Fully Paid Invoices ({{ paid|length }})</h3>
 {% if paid %}
     <table class="table">
         <thead>
@@ -311,7 +311,7 @@
                 <tr>
                     <td><strong>{{ item.supplier.name }}</strong></td>
                     <td>{{ item.invoice_number }}</td>
-                    <td class="currency">UGX {% widthratio item.total_amount 1 0|floatformat:0 %}</td>
+                    <td class="currency">UGX {{ item.total_amount|floatformat:0 }}</td>
                     <td>{{ item.date_logged|date:"M d, Y" }}</td>
                 </tr>
             {% endfor %}
@@ -322,7 +322,7 @@
 {% endif %}
 
 <!-- SUPPLIER SUMMARY -->
-<h3 class="section-title">👥 Supplier Summary - Outstanding Balance</h3>
+<h3 class="section-title">Supplier Summary - Outstanding Balance</h3>
 {% if supplier_summary %}
     <table class="table">
         <thead>
@@ -336,7 +336,7 @@
             {% for item in supplier_summary %}
                 <tr>
                     <td><strong>{{ item.supplier.name }}</strong></td>
-                    <td class="currency"><strong>UGX {% widthratio item.total_owed 1 0|floatformat:0 %}</strong></td>
+                    <td class="currency"><strong>UGX {{ item.total_owed|floatformat:0 }}</strong></td>
                     <td>{{ item.credit_count }}</td>
                 </tr>
             {% endfor %}

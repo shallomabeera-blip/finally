@@ -6,10 +6,10 @@
 {% block content %}
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
         <div>
-            <h2>User Account Control Dashboard</h2>
-            <p style="color: #64748b; font-size: 14px;">Establish corporate access boundaries and system roles for NYONDO employees</p>
+            <h2>User Management</h2>
+            <p style="color: #64748b; font-size: 14px;">Manage employee accounts and system access</p>
         </div>
-        <a href="?show_modal=add_user" class="btn" style="background: #013220; color: white;">+ Register New Employee</a>
+        <a href="?show_modal=add" class="btn" style="background: #013220; color: white;">+ Add User</a>
     </div>
 
    
@@ -33,11 +33,11 @@
         <thead>
             <tr style="background-color: #f8fafc; border-bottom: 2px solid #e2e8f0; text-align: left;">
                 <th style="padding: 14px;">Username</th>
-                <th style="padding: 14px;">Full Name</th>
-                <th style="padding: 14px;">Email Reference</th>
-                <th style="padding: 14px;">Assigned Group Role</th>
-                <th style="padding: 14px;">Login Access Status</th>
-                <th style="padding: 14px; text-align: right;">Action Control</th>
+                <th style="padding: 14px;">Name</th>
+                <th style="padding: 14px;">Email</th>
+                <th style="padding: 14px;">Role</th>
+                <th style="padding: 14px;">Status</th>
+                <th style="padding: 14px; text-align: right;">Actions</th>
             </tr>
         </thead>
         <tbody>
@@ -47,31 +47,25 @@
                 <td style="padding: 14px; color: #334155;">{{ emp.first_name }} {{ emp.last_name }}</td>
                 <td style="padding: 14px; color: #64748b;">{{ emp.email|default:"Not Provided" }}</td>
                 <td style="padding: 14px;">
-                    {% if emp.role == 'ADMIN' %}
-                        <span class="status-badge" style="background: #e0f2fe; color: #0369a1;">{{ emp.get_role_display }}</span>
-                    {% elif emp.role == 'STORE_MANAGER' %}
-                        <span class="status-badge" style="background: #fef3c7; color: #d97706;">{{ emp.get_role_display }}</span>
-                    {% else %}
-                        <span class="status-badge" style="background: #f1f5f9; color: #475569;">{{ emp.get_role_display }}</span>
-                    {% endif %}
+                    <span class="status-badge" style="background: {% if emp.role == 'ADMIN' %}#e0f2fe; color: #0369a1;{% elif emp.role == 'STOCK' %}#fef3c7; color: #d97706;{% else %}#f1f5f9; color: #475569;{% endif %};">{{ emp.get_role_display }}</span>
                 </td>
                 <td style="padding: 14px;">
                     {% if emp.is_active %}
-                        <span style="color: #16a34a; font-weight: 600;">● Authorized Active</span>
+                        <span style="color: #16a34a; font-weight: 600;">Active</span>
                     {% else %}
-                        <span style="color: #94a3b8; font-style: italic;">Suspended</span>
+                        <span style="color: #94a3b8; font-style: italic;">Inactive</span>
                     {% endif %}
                 </td>
                 <td style="padding: 14px; text-align: right;">
                     {% if emp.id != user.id %}
-                        <a href="?delete_id={{ emp.id }}" class="btn" style="background: #fee2e2; color: #991b1b; padding: 6px 12px; font-size: 13px;">Revoke Access</a>
+                        <a href="?delete_id={{ emp.id }}" class="btn" style="background: #fee2e2; color: #991b1b; padding: 6px 12px; font-size: 13px;">Delete</a>
                     {% else %}
-                        <span style="color: #94a3b8; font-size: 13px; font-style: italic; margin-right: 15px;">Your Profile</span>
+                        <span style="color: #94a3b8; font-size: 13px; font-style: italic; margin-right: 15px;">You</span>
                     {% endif %}
                 </td>
             </tr>
             {% empty %}
-            <tr><td colspan="6" style="padding: 20px; text-align: center; color: #94a3b8;">No physical employee records indexed inside system schemas.</td></tr>
+            <tr><td colspan="6" style="padding: 20px; text-align: center; color: #94a3b8;">No users found.</td></tr>
             {% endfor %}
         </tbody>
     </table>
@@ -81,14 +75,14 @@
     <div class="modal-overlay">
         <div class="modal-box">
             <a href="?" class="close-x">&times;</a>
-            <h3 style="margin-bottom: 20px; color: #0f172a;">Register System Employee</h3>
+            <h3 style="margin-bottom: 20px; color: #0f172a;">Add New User</h3>
             <form method="POST" action="{% url 'user_management' %}">
                 {% csrf_token %}
                 <input type="hidden" name="form_action" value="create_user">
                 
                 <div class="field">
-                    <label>System Username (Unique Login reference):</label>
-                    <input type="text" name="username" placeholder="e.g., john_nyondo" required autocomplete="off">
+                    <label>Username:</label>
+                    <input type="text" name="username" placeholder="e.g., john" required autocomplete="off">
                 </div>
                 <div class="field">
                     <label>First Name:</label>
@@ -99,12 +93,12 @@
                     <input type="text" name="last_name" required>
                 </div>
                 <div class="field">
-                    <label>Corporate Email:</label>
-                    <input type="email" name="email" placeholder="e.g., john@nyondohardware.com">
+                    <label>Email:</label>
+                    <input type="email" name="email" placeholder="e.g., john@example.com">
                 </div>
                 
                 <div class="field">
-                    <label>Assign Functional Group Role/Permissions Base:</label>
+                    <label>Role:</label>
                     <select name="role" required>
                         {% for code, label in role_choices %}
                             <option value="{{ code }}">{{ label }}</option>
@@ -113,12 +107,12 @@
                 </div>
                 
                 <div class="field">
-                    <label>Initial Security Account Password:</label>
+                    <label>Password:</label>
                     <input type="password" name="password" minlength="4" required>
                 </div>
                 
                 <button type="submit" class="btn" style="background: #2563eb; color: white; width: 100%; font-size: 15px; padding: 12px;">
-                    Save Profile & Encrypt Credentials
+                    Create User
                 </button>
             </form>
         </div>
@@ -130,10 +124,10 @@
     <div class="modal-overlay">
         <div class="modal-box">
             <a href="?" class="close-x">&times;</a>
-            <h3 style="margin-bottom: 15px; color: #0f172a;">Revoke Staff Account</h3>
+            <h3 style="margin-bottom: 15px; color: #0f172a;">Delete User</h3>
             <p style="color: #475569; margin-bottom: 20px; line-height: 1.5;">
-                Are you sure you want to completely erase employee profile <strong>@{{ delete_employee.username }}</strong> from system registries?<br>
-                This action instantly kills their operational tokens, blocking future dashboard entry routines.
+                Are you sure you want to delete <strong>@{{ delete_employee.username }}</strong>?<br>
+                This action cannot be undone.
             </p>
             <form method="POST" action="{% url 'user_management' %}">
                 {% csrf_token %}
@@ -141,7 +135,7 @@
                 <input type="hidden" name="user_id" value="{{ delete_employee.id }}">
                 
                 <div style="display: flex; gap: 10px;">
-                    <button type="submit" class="btn" style="background: #dc2626; color: white; flex: 1;">Yes, Revoke Access</button>
+                    <button type="submit" class="btn" style="background: #dc2626; color: white; flex: 1;">Yes, Delete</button>
                     <a href="?" class="btn" style="background: #64748b; color: white; flex: 1; text-align: center; padding-top: 10px;">Cancel</a>
                 </div>
             </form>

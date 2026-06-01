@@ -179,16 +179,13 @@ class SupplierCredit(models.Model):
 
 class User(AbstractUser):
     ROLE_CHOICES = [
-        ('SALES_ATTENDANT', 'Sales Attendant'),
-        ('STORE_MANAGER', 'Store Manager'),
         ('ADMIN', 'Accounts / Admin'),
+        ('SALES', 'Sales Attendant'),
+        ('STOCK', 'Store Manager'),
     ]
-    # Now 'models' can be referenced perfectly
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='SALES_ATTENDANT')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='SALES')
 
-    def __str__(self):
-        return f"{self.username} ({self.get_role_display()})"
-
+                              
 
 class SystemSettings(models.Model):
     """System-wide configuration settings"""

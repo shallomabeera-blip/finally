@@ -8,7 +8,7 @@
         <h2>Unified Stock & Inventory Ledger</h2>
         <div>
             <a href="?show_modal=add_category" class="btn" style="background:  #013220; color: white;">+ Create Category</a>
-            <a href="?show_modal=add" class="btn" style="background:  #013220; color: white;">+ Register New Stock</a>
+            <a href="?show_modal=add" class="btn" style="background:  #013220; color: white;">+ Add New Stock</a>
         </div>
     </div>
 
@@ -89,7 +89,7 @@
     <div class="modal-overlay">
         <div class="modal-box">
             <a href="?" class="close-x">&times;</a>
-            <h3 style="margin-bottom: 20px; color: #0f172a;">Register New Product</h3>
+            <h3 style="margin-bottom: 20px; color: #0f172a;">Add New Product</h3>
             <form method="POST" action="{% url 'stock' %}">
                 {% csrf_token %}
                 <input type="hidden" name="form_action" value="create">

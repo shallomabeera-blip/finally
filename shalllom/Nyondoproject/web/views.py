@@ -5,11 +5,14 @@ from django.contrib import messages
 from decimal import Decimal
 from django.core.exceptions import ValidationError
 from django.contrib.auth import authenticate, login, logout
+from django.contrib.auth.decorators import login_required
 from .models import *
 from django.db import transaction 
 from datetime import date, date, datetime
 from django.db.models import Sum, F, Count
 from django.contrib.auth import get_user_model
+from django.utils import timezone
+from .models import User 
 
 
 def add_validation_messages(request, validation_error):
@@ -23,41 +26,156 @@ def add_validation_messages(request, validation_error):
 
 
 def role_home(role):
-    if role == 'STORE_MANAGER':
+    """Maps role names to their default dashboard URL names safely."""
+    clean_role = str(role).upper().strip()
+    
+    # Map exact role values from User.ROLE_CHOICES to URL names
+    if clean_role == 'STOCK':
         return 'stock'
-    if role == 'SALES_ATTENDANT':
+    if clean_role == 'SALES':
         return 'sales'
-    return 'reports'
+    if clean_role == 'ADMIN':
+        return 'admin_dashboard'
+    
+    # Fuzzy matching fallback for compatibility
+    if 'STOCK' in clean_role or 'MANAGER' in clean_role:
+        return 'stock'
+    if 'SALES' in clean_role or 'ATTENDANT' in clean_role:
+        return 'sales'
+    return 'admin_dashboard'
 
 
 def require_role(*allowed_roles):
+    """Enforces role boundaries safely with fuzzy matching logic."""
     def decorator(view_func):
         @wraps(view_func)
         def wrapper(request, *args, **kwargs):
             if not request.user.is_authenticated:
                 return redirect('login')
 
-            user_role = getattr(request.user, 'role', '')
-            if user_role == 'ADMIN' or user_role in allowed_roles:
+            # Fetch the user's role and standardize it to uppercase
+            user_role = str(getattr(request.user, 'role', '')).upper()
+            
+            # Universal administrative override clearance
+            if 'ADMIN' in user_role:
                 return view_func(request, *args, **kwargs)
 
-            messages.error(request, "Access denied: you do not have permission to view this section.")
+            # Check if any allowed roles are part of the user's role string
+            for allowed in allowed_roles:
+                if allowed.upper() in user_role:
+                    return view_func(request, *args, **kwargs)
+
+            # Access denied safety route
+            messages.error(request, "Access denied: Redirected to your authorized department.")
             return redirect(role_home(user_role))
 
         return wrapper
-
     return decorator
 
 
+# =========================================================
+# 2. CORE SYSTEM VIEWS (Login, Logout, Landing)
+# =========================================================
+
 def index(request):
-    return render(request, 'index.html')
+    """Public facing root application entry path."""
+    if request.user.is_authenticated:
+        return redirect(role_home(request.user.role))
+    return redirect('login')
+
+
+def login_view(request):
+    """Handles secure workspace employee authentication processing."""
+    if request.user.is_authenticated:
+        return redirect(role_home(request.user.role))
+
+    if request.method == 'POST':
+        username_input = request.POST.get('username', '').strip()
+        password_input = request.POST.get('password', '')
+
+        # Authenticate checks the password hash securely against the SQLite backend
+        user = authenticate(request, username=username_input, password=password_input)
+
+        if user is not None:
+            if user.is_active:
+                login(request, user)
+                messages.success(request, f"Welcome back, {user.username}!")
+                return redirect(role_home(user.role))
+            else:
+                messages.error(request, "Your account profile has been disabled by management.")
+        else:
+            messages.error(request, "Invalid credentials. Please verify your username and password.")
+
+    return render(request, 'login.html')
+
+
+def logout_view(request):
+    """Logs the user out cleanly and clears the active session."""
+    logout(request)
+    messages.info(request, "You have logged out of the Nyondo Hardware terminal.")
+    return redirect('login')
+
+
+# =========================================================
+# 3. ACCOUNT CONTROL & BUSINESS VIEWS
+# =========================================================
+
+@login_required
 @require_role('ADMIN')
 def user_management(request):
+    """Allows administrators to track, view, and create user accounts."""
+    if request.method == 'POST':
+        form_action = request.POST.get('form_action')
+        
+        if form_action == 'create_user':
+            username_input = request.POST.get('username', '').strip()
+            first_name = request.POST.get('first_name', '').strip()
+            last_name = request.POST.get('last_name', '').strip()
+            email_input = request.POST.get('email', '').strip()
+            password_input = request.POST.get('password', '')
+            role_input = request.POST.get('role', '')
+
+            try:
+                if User.objects.filter(username=username_input).exists():
+                    raise ValidationError("An account with this username already exists.")
+
+                # create_user securely hashes passwords so credentials validate on login
+                new_user = User.objects.create_user(
+                    username=username_input,
+                    first_name=first_name,
+                    last_name=last_name,
+                    email=email_input,
+                    password=password_input,
+                    role=role_input
+                )
+                messages.success(request, f"Account for employee '{new_user.username}' created successfully!")
+                return redirect('user_management')
+
+            except ValidationError as e:
+                add_validation_messages(request, e)
+            except Exception as e:
+                messages.error(request, f"An unexpected system exception occurred: {str(e)}")
+
     users = User.objects.all().order_by('username')
-    return render(request, "user.html", {
+    
+    context = {
         'employees': users,
         'role_choices': User.ROLE_CHOICES,
-    })
+        'today': timezone.now()
+    }
+    
+    # Handle show_modal GET parameter for displaying modals
+    show_modal = request.GET.get('show_modal')
+    if show_modal == 'add':
+        context['display_add_modal'] = True
+    
+    # Handle delete confirmation modal
+    delete_id = request.GET.get('delete_id')
+    if delete_id:
+        context['delete_employee'] = get_object_or_404(User, id=delete_id)
+        context['display_delete_modal'] = True
+    
+    return render(request, "user.html", context)
 
 
 
@@ -66,12 +184,12 @@ def user_management(request):
 def admin_dashboard(request):
     user = request.user
 
-    
     context = {
         'total_products': Product.objects.count(),
         'total_sales_count': Sale.objects.count(),
         'total_suppliers_count': SupplierCredit.objects.values('supplier').distinct().count(),
         'total_customers_count': DepositAccount.objects.count(),
+        'today': timezone.now(),
     }
 
    
@@ -89,7 +207,7 @@ def admin_dashboard(request):
     return render(request, 'admin_dashboard.html', context)
 
 
-@require_role('STORE_MANAGER', 'ADMIN')
+@require_role('STOCK', 'ADMIN')
 def stock(request):
     if request.method == 'POST':
         form_action = request.POST.get('form_action')
@@ -183,7 +301,12 @@ def stock(request):
     suppliers = Supplier.objects.all().order_by('name')
     categories = Category.objects.all().order_by('name')
     
-    context = {'products': products, 'suppliers': suppliers, 'categories': categories}
+    context = {
+        'products': products,
+        'suppliers': suppliers,
+        'categories': categories,
+        'today': timezone.now(),
+    }
 
     if request.GET.get('show_modal') == 'add':
         context['display_add_modal'] = True
@@ -205,7 +328,7 @@ def stock(request):
 
 
 
-@require_role('ADMIN')
+@require_role('SALES', 'ADMIN')
 def deposit(request):
     if request.method == 'POST':
         form_action = request.POST.get('form_action')
@@ -221,6 +344,11 @@ def deposit(request):
             except (ValueError, TypeError):
                 initial_deposit = Decimal('0')
 
+            # Validate required fields
+            if not acc_num or not name or not phone or not nin:
+                messages.error(request, "Registration Failed: All fields are required.")
+                return redirect(f"{request.path}?show_modal=add_account&acc_num={acc_num}&name={name}&phone={phone}&nin={nin}&balance={initial_deposit}")
+
             try:
                 new_account = DepositAccount(
                     account_number=acc_num, 
@@ -232,7 +360,7 @@ def deposit(request):
                 new_account.full_clean() 
                 new_account.save()
                 messages.success(request, f"Deposit profile created successfully for {name}!")
-                return redirect('deposit') # Changed from deposit_dashboard to stay consistent
+                return redirect('deposit')
                 
             except ValidationError as e:
                 # Safe handling if validation error contains a dict or flat list
@@ -244,8 +372,8 @@ def deposit(request):
                     for error in e.messages:
                         messages.error(request, f"Registration Failed: {error}")
                 
-                # Dynamic redirect to prevent broken routing loops
-                return redirect(f"{request.path}?show_modal=add_account")
+                # Dynamic redirect with form data preserved
+                return redirect(f"{request.path}?show_modal=add_account&acc_num={acc_num}&name={name}&phone={phone}&nin={nin}&balance={initial_deposit}")
 
         elif form_action == 'top_up':
             account_id = request.POST.get('account_id')
@@ -267,10 +395,21 @@ def deposit(request):
 
     # GET requests processing loop
     accounts = DepositAccount.objects.all().order_by('customer_name')
-    context = {'accounts': accounts}
+    context = {
+        'accounts': accounts,
+        'today': timezone.now(),
+    }
 
     if request.GET.get('show_modal') == 'add_account':
         context['display_add_modal'] = True
+        # Preserve form values on validation error
+        context['form_data'] = {
+            'account_number': request.GET.get('acc_num', ''),
+            'customer_name': request.GET.get('name', ''),
+            'phone_number': request.GET.get('phone', ''),
+            'national_id_nin': request.GET.get('nin', ''),
+            'initial_balance': request.GET.get('balance', '0'),
+        }
 
     top_up_id = request.GET.get('top_up_id')
     if top_up_id:
@@ -280,7 +419,7 @@ def deposit(request):
     return render(request, 'deposits.html', context)
 
 
-@require_role('SALES_ATTENDANT', 'ADMIN')
+@require_role('SALES', 'ADMIN')
 def sales(request):
     TRANSPORT_RATE_PER_KM = Decimal('3000.00')
 
@@ -397,41 +536,13 @@ def sales(request):
         'sales': sales_history,
         'products': available_products,
         'deposit_accounts': active_deposit_accounts,
-        'rate_per_km': TRANSPORT_RATE_PER_KM
+        'rate_per_km': TRANSPORT_RATE_PER_KM,
+        'today': timezone.now(),
     }
 
     
     if request.GET.get('show_modal') == 'new_sale':
-        context['display_sale_modal'] = True
-        
-        # Read parameters from URL to build a real-time calculation preview
-        preview_prod_id = request.GET.get('product')
-        preview_qty_raw = request.GET.get('quantity_sold', '').strip()  
-        preview_trans = request.GET.get('requires_transport') == 'on'
-        preview_dist_raw = request.GET.get('delivery_distance_km', '').strip()
-
-        if preview_prod_id and preview_qty_raw:
-            try:
-                p_prod = get_object_or_404(Product, id=preview_prod_id)
-                p_qty = int(preview_qty_raw)
-                p_dist = Decimal(preview_dist_raw) if preview_dist_raw else Decimal('0')
-                
-                p_subtotal = p_prod.selling_price * p_qty
-                p_trans_fee = (p_dist * TRANSPORT_RATE_PER_KM) if preview_trans else Decimal('0.00')
-                p_grand = p_subtotal + p_trans_fee
-                
-                context['preview_data'] = {
-                    'product_name': p_prod.name,
-                    'unit_price': p_prod.selling_price,
-                    'quantity': p_qty,
-                    'subtotal': p_subtotal,
-                    'requires_transport': preview_trans,
-                    'distance': p_dist,
-                    'transport_fee': p_trans_fee,
-                    'grand_total': p_grand
-                }
-            except (ValueError, TypeError):
-                pass  
+        context['display_sale_modal'] = True  
 
    
     receipt_id = request.GET.get('view_receipt_id')
@@ -442,7 +553,7 @@ def sales(request):
     return render(request, 'sales.html', context)
 
 
-@require_role('ADMIN')
+@require_role('SALES', 'ADMIN')
 def credit(request):
 
     if request.method == 'POST':
@@ -464,17 +575,21 @@ def credit(request):
 
             if total_amt <= 0:
                 messages.error(request, "Error: Total invoice amount must be greater than zero.")
-                return redirect('/stock/?show_modal=add_credit')
+                return redirect('/credit/?show_modal=add_credit')
 
             if SupplierCredit.objects.filter(invoice_number=invoice_num).exists():
                 messages.error(request, "Error: This supplier invoice reference number is already logged.")
                 return redirect('/credit/?show_modal=add_credit')
 
+            # Calculate balance_due before creating the object
+            balance_due = total_amt - amt_paid
+            
             credit_record = SupplierCredit(
                 supplier_id=supplier_id,
                 invoice_number=invoice_num,
                 total_amount=total_amt,
                 amount_paid=amt_paid,
+                balance_due=balance_due,
                 due_date=due_date,
             )
 
@@ -514,7 +629,7 @@ def credit(request):
     context = {
         'credits': credits,
         'suppliers': suppliers,
-        'today': today,
+        'today': timezone.now(),
     }
 
     if request.GET.get('show_modal') == 'add_credit':
@@ -568,105 +683,10 @@ def reports(request):
     return render(request, 'reports.html', context)
 
 
-def login_view(request):
-    if request.user.is_authenticated:
-        return redirect('reports') # Send directly if already logged in
-
-    if request.method == 'POST':
-        username_input = request.POST.get('username', '').strip()
-        password_input = request.POST.get('password', '').strip()
-
-        user = authenticate(request, username=username_input, password=password_input)
-        
-        if user is not None:
-            login(request, user)
-            messages.success(request, f"Welcome back, {user.username}!")
-            return redirect(role_home(user.role))
-        else:
-            messages.error(request, "Access Denied: Invalid username or security password.")
-            return redirect('login')
-
-    return render(request, 'login.html')
-
-def logout_view(request):
-    logout(request)
-    return redirect('login')
-
-
-
-
-User = get_user_model()
-
-def is_admin(user):
-    return user.is_authenticated and user.role == 'ADMIN'
-
-# @login_required(login_url='login')
-# @user_passes_test(is_admin, login_url='login')
-def user_management(request):
-    # 1. PROCESS CORE ACTIONS FOR USER STORAGE (POST)
-    if request.method == 'POST':
-        form_action = request.POST.get('form_action')
-
-        if form_action == 'create_user':
-            username = request.POST.get('username', '').strip().lower()
-            first_name = request.POST.get('first_name', '').strip()
-            last_name = request.POST.get('last_name', '').strip()
-            email = request.POST.get('email', '').strip()
-            role = request.POST.get('role')
-            password = request.POST.get('password', '')
-
-            # Validation  checks
-            if User.objects.filter(username=username).exists():
-                messages.error(request, f"Registration Failed: Username '{username}' is already taken.")
-                return redirect('/users/?show_modal=add_user')
-
-            
-            
-            User.objects.create_user(
-                username=username, first_name=first_name, last_name=last_name,
-                email=email, role=role, password=password
-            )
-            messages.success(request, f"Success: Corporate staff account created for @{username}!")
-            return redirect('user_management')
-
-        elif form_action == 'delete_user':
-            user_id = request.POST.get('user_id')
-
-           
-            if int(user_id) == request.user.id:
-                messages.error(request, "Operation Aborted: You are currently signed into this profile account.")
-                return redirect('user_management')
-
-            employee_record = get_object_or_404(User, id=user_id)
-            deleted_name = employee_record.username
-            employee_record.delete()
-
-            messages.success(request, f"Success: Access tokens revoked for employee account @{deleted_name}.")
-            return redirect('user_management')
-
-    
-    
-    employees_list = User.objects.all().order_by('username')
-    role_options = User.ROLE_CHOICES # Dynamic models.py array fetch loop configuration
-    
-    context = {
-        'employees': employees_list,
-        'role_choices': role_options,
-    }
-
-    if request.GET.get('show_modal') == 'add_user':
-        context['display_add_modal'] = True
-
-    target_delete_id = request.GET.get('delete_id')
-    if target_delete_id:
-        context['delete_employee'] = get_object_or_404(User, id=target_delete_id)
-        context['display_delete_modal'] = True
-
-    return render(request, 'user.html', context)
 
 
 # ===================== PAGE 1: SUPPLIER MANAGEMENT =====================
-@require_role('STORE_MANAGER', 'ADMIN')
+@require_role('STOCK', 'ADMIN')
 def supplier_management(request):
     if request.method == 'POST':
         form_action = request.POST.get('form_action')
@@ -709,7 +729,10 @@ def supplier_management(request):
             return redirect('supplier_management')
 
     suppliers = Supplier.objects.all().order_by('name')
-    context = {'suppliers': suppliers}
+    context = {
+        'suppliers': suppliers,
+        'today': timezone.now(),
+    }
 
     if request.GET.get('show_modal') == 'add':
         context['display_add_modal'] = True
@@ -728,7 +751,7 @@ def supplier_management(request):
 
 
 # ===================== PAGE 2: DETAILED INVENTORY REPORTS =====================
-@require_role('STORE_MANAGER', 'ADMIN')
+@require_role('STOCK', 'ADMIN')
 def inventory_reports(request):
     products = Product.objects.all().select_related('supplier', 'category').order_by('name')
     
@@ -785,7 +808,7 @@ def inventory_reports(request):
 
 
 # ===================== PAGE 3: CREDIT AGING REPORT =====================
-@require_role('ADMIN')
+@require_role('SALES', 'ADMIN')
 def credit_aging(request):
     today = datetime.now().date()
     credits = SupplierCredit.objects.all().select_related('supplier').order_by('due_date')
@@ -889,13 +912,14 @@ def settings(request):
         'low_stock_default': settings_obj.default_low_stock_threshold,
         'currency': settings_obj.currency,
         'timezone': settings_obj.timezone,
+        'today': timezone.now(),
     }
 
     return render(request, 'settings.html', context)
 
 
 # ===================== PAGE 6: USER PROFILE =====================
-@require_role('SALES_ATTENDANT', 'STORE_MANAGER', 'ADMIN')
+@require_role('SALES', 'STOCK', 'ADMIN')
 def user_profile(request):
     user = request.user
     
@@ -945,13 +969,14 @@ def user_profile(request):
         'user': user,
         'role_display': user.get_role_display(),
         'user_sales': user_sales,
+        'today': timezone.now(),
     }
 
     return render(request, 'user_profile.html', context)
 
 
 # ===================== PAGE 7: SALES HISTORY & RECEIPTS =====================
-@require_role('SALES_ATTENDANT', 'ADMIN')
+@require_role('SALES', 'ADMIN')
 def sales_history(request):
     # Get all sales with related data
     sales = Sale.objects.all().select_related('product', 'customer_account').order_by('-date_processed')

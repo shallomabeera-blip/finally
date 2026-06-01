@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block active_settings %}{% endblock %}
+
+{% block content %}
+    <div style="max-width: 800px; margin: 0 auto;">
+        <h2 style="margin-bottom: 10px; color: #0f172a;">System Settings</h2>
+        <p style="color: #64748b; font-size: 14px; margin-bottom: 30px;">Configure system-wide preferences and business information</p>
+
+        {% if messages %}
+            <div style="margin-bottom: 20px;">
+                {% for message in messages %}
+                    <div style="padding: 12px; border-radius: 4px; 
+                        {% if 'error' in message.tags or 'Failed' in message|stringformat:'s' or 'Error' in message|stringformat:'s' %}
+                            background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;
+                        {% else %}
+                            background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0;
+                        {% endif %} font-weight: 500; margin-bottom: 8px;">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+
+        <form method="POST" style="background: white; padding: 30px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
+            {% csrf_token %}
+            
+            <h3 style="color: #0f172a; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0;">Business Information</h3>
+            
+            <div class="field">
+                <label>Business Name:</label>
+                <input type="text" name="business_name" value="{{ business_name }}" required>
+            </div>
+            
+            <div class="field">
+                <label>Business Phone:</label>
+                <input type="text" name="business_phone" value="{{ business_phone }}">
+            </div>
+            
+            <div class="field">
+                <label>Business Email:</label>
+                <input type="email" name="business_email" value="{{ business_email }}">
+            </div>
+
+            <h3 style="color: #0f172a; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; margin-top: 30px;">Transport Settings</h3>
+            
+            <div class="field">
+                <label>Transport Rate (UGX per km):</label>
+                <input type="number" name="transport_rate" value="{{ transport_rate }}" step="0.01" min="0">
+            </div>
+            
+            <div class="field">
+                <label>Free Delivery Threshold (UGX):</label>
+                <input type="number" name="free_delivery_threshold" value="{{ free_delivery_threshold|default:'' }}" step="0.01" min="0">
+                <small style="color: #64748b;">Orders above this amount get free delivery (leave empty to disable)</small>
+            </div>
+
+            <h3 style="color: #0f172a; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #e2e8f0; margin-top: 30px;">System Preferences</h3>
+            
+            <div class="field">
+                <label>Default Low Stock Threshold:</label>
+                <input type="number" name="low_stock_default" value="{{ low_stock_default }}" min="0">
+                <small style="color: #64748b;">Alert when stock falls at or below this number</small>
+            </div>
+
+            <div style="margin-top: 30px; display: flex; gap: 10px;">
+                <button type="submit" class="btn" style="background:  color: white; padding: 12px 24px;">Save Settings</button>
+                <a href="{% url 'admin_dashboard' %}" class="btn" style="background:#013220;; color: white; padding: 12px 24px;">Cancel</a>
+            </div>
+        </form>
+    </div>
+{% endblock %}

@@ -16,7 +16,7 @@
     }
 
     .btn-primary {
-        background-color: #0ea5e9;
+        background-color:  #013220;
         color: white;
         padding: 10px 20px;
         border-radius: 4px;
@@ -83,7 +83,7 @@
     }
 
     .btn-edit {
-        background-color: #3b82f6;
+        background-color: #013220;;
         color: white;
     }
 
@@ -182,13 +182,13 @@
     </table>
 {% else %}
     <div class="empty-state">
-        <div class="empty-icon">📦</div>
+        <div class="empty-icon"></div>
         <div class="empty-message">No suppliers registered yet. Create your first supplier to get started.</div>
         <a href="?show_modal=add" class="btn-primary">+ Add Supplier</a>
     </div>
 {% endif %}
 
-<!-- ADD SUPPLIER MODAL -->
+
 {% if display_add_modal %}
     <div class="modal-overlay">
         <div class="modal-box">
@@ -241,7 +241,8 @@
     </div>
 {% endif %}
 
-<!-- DELETE SUPPLIER MODAL -->
+
+
 {% if display_delete_modal and delete_supplier %}
     <div class="modal-overlay">
         <div class="modal-box">

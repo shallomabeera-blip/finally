@@ -82,16 +82,16 @@
             <div style="border-right: 1px solid #e2e8f0; padding-right: 20px;">
                 <h3 style="margin-bottom: 20px; color: #0f172a;">Process Customer Checkout</h3>
                 
-                
-                <form method="GET" action="">
-                    <input type="hidden" name="show_modal" value="new_sale">
+                <!-- Unified form for entering sale details and submitting -->
+                <form method="POST" action="{% url 'sales' %}" id="sale_form">
+                    {% csrf_token %}
                     
                     <div class="field">
                         <label>Select Product:</label>
-                        <select name="product" onchange="this.form.submit()"> <!-- Simple native element fallback layout refresh -->
+                        <select name="product" required>
                             <option value="">-- Choose Stock Item --</option>
                             {% for prod in products %}
-                                <option value="{{ prod.id }}" {% if request.GET.product == prod.id|stringformat:"i" %}selected{% endif %}>
+                                <option value="{{ prod.id }}">
                                     {{ prod.name }} (UGX {{ prod.selling_price }})
                                 </option>
                             {% endfor %}
@@ -100,34 +100,19 @@
 
                     <div class="field">
                         <label>Quantity to Purchase:</label>
-                        <input type="number" name="quantity_sold" min="1" value="{{ request.GET.quantity_sold }}" placeholder="Enter quantity">
+                        <input type="number" name="quantity_sold" min="1" placeholder="Enter quantity" required>
                     </div>
 
                     <div style="background: #f8fafc; padding: 12px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #e2e8f0;">
                         <div style="display: flex; align-items: center; gap: 8px;">
-                            <input type="checkbox" id="t_toggle" name="requires_transport" {% if request.GET.requires_transport == 'on' %}checked{% endif %} style="width:auto;">
+                            <input type="checkbox" id="t_toggle" name="requires_transport" style="width:auto;">
                             <label for="t_toggle" style="margin:0; font-weight:bold; font-size:13px;">Add Transport Fees</label>
                         </div>
                         <div class="field" style="margin:10px 0 0 20px;">
                             <label style="font-size:12px;">Distance (KM):</label>
-                            <input type="number" name="delivery_distance_km" min="0" step="0.1" value="{{ request.GET.delivery_distance_km|default:'0' }}">
+                            <input type="number" name="delivery_distance_km" min="0" step="0.1" value="0">
                         </div>
                     </div>
-
-                   
-                    <button type="submit" class="btn" style="background: #64748b; color: white; width: 100%; margin-bottom: 15px; font-size:13px;">
-                        Calculate Live Invoice Preview
-                    </button>
-                </form>
-
-                
-                <form method="POST" action="{% url 'sales' %}">
-                    {% csrf_token %}
-                    <!-- Carry input state constants straight into POST attributes variables securely -->
-                    <input type="hidden" name="product" value="{{ request.GET.product }}">
-                    <input type="hidden" name="quantity_sold" value="{{ request.GET.quantity_sold }}">
-                    <input type="hidden" name="requires_transport" value="{{ request.GET.requires_transport }}">
-                    <input type="hidden" name="delivery_distance_km" value="{{ request.GET.delivery_distance_km }}">
 
                     <div class="field">
                         <label>Settlement Payment Method:</label>
@@ -155,34 +140,84 @@
 
             
             <div style="background: #fafafa; border: 1px dashed #cbd5e1; border-radius: 6px; padding: 20px; display: flex; flex-direction: column; justify-content: center; font-family: monospace;">
-                {% if preview_data %}
+                <div id="preview-section">
                     <div style="text-align: center; margin-bottom: 15px; border-bottom: 1px dashed #000; padding-bottom: 10px;">
                         <h4 style="margin: 0;">NYONDO GENERAL HARDWARE</h4>
                         <p style="font-size: 11px; margin: 2px 0 0 0;">LIVE INVOICE PREVIEW SLIP</p>
                     </div>
 
                     <div style="font-size: 12px; line-height: 1.6; flex: 1;">
-                        <p><strong>Item:</strong> {{ preview_data.product_name }}</p>
-                        <p><strong>Rate:</strong> UGX {{ preview_data.unit_price }}</p>
-                        <p><strong>Quantity:</strong> {{ preview_data.quantity }} pcs</p>
-                        <p><strong>Items Cost:</strong> UGX {{ preview_data.subtotal }}</p>
+                        <p><strong>Item:</strong> <span id="preview-item">Select a product</span></p>
+                        <p><strong>Rate:</strong> UGX <span id="preview-rate">0</span></p>
+                        <p><strong>Quantity:</strong> <span id="preview-qty">0</span> pcs</p>
+                        <p><strong>Items Cost:</strong> UGX <span id="preview-subtotal">0</span></p>
                         
-                        {% if preview_data.requires_transport %}
-                            <p><strong>Transit:</strong> {{ preview_data.distance }} KM</p>
-                            <p><strong>Transport Fee:</strong> UGX {{ preview_data.transport_fee }}</p>
-                        {% endif %}
+                        <div id="transport-preview" style="display:none;">
+                            <p><strong>Transit:</strong> <span id="preview-distance">0</span> KM</p>
+                            <p><strong>Transport Fee:</strong> UGX <span id="preview-transport">0</span></p>
+                        </div>
                     </div>
 
                     <div style="font-size: 14px; font-weight: bold; display: flex; justify-content: space-between; border-top: 1px dashed #000; padding-top: 10px; margin-top: 15px;">
                         <span>ESTIMATED TOTAL:</span>
-                        <span style="color:#16a34a;">UGX {{ preview_data.grand_total }}</span>
+                        <span style="color:#16a34a;">UGX <span id="preview-total">0</span></span>
                     </div>
-                {% else %}
-                    <!-- Visual feedback fallback state indicator -->
-                    <div style="text-align: center; color: #94a3b8; font-family: sans-serif; font-size: 13px;">
-                        <p>Fill out the left product forms and click <strong>Calculate Live Invoice Preview</strong> to populate this structural receipt matrix field instantly.</p>
-                    </div>
-                {% endif %}
+                </div>
+                
+                <script>
+                const TRANSPORT_RATE = 3000;
+                
+                function updatePreview() {
+                    const productSelect = document.querySelector('select[name="product"]');
+                    const quantityInput = document.querySelector('input[name="quantity_sold"]');
+                    const transportCheckbox = document.querySelector('input[name="requires_transport"]');
+                    const distanceInput = document.querySelector('input[name="delivery_distance_km"]');
+                    
+                    if (!productSelect || !productSelect.value) {
+                        document.getElementById('preview-item').textContent = 'Select a product';
+                        document.getElementById('preview-rate').textContent = '0';
+                        document.getElementById('preview-qty').textContent = '0';
+                        document.getElementById('preview-subtotal').textContent = '0';
+                        document.getElementById('preview-total').textContent = '0';
+                        document.getElementById('transport-preview').style.display = 'none';
+                        return;
+                    }
+                    
+                    // Extract price and name from the selected option
+                    const selectedOption = productSelect.options[productSelect.selectedIndex];
+                    const optionText = selectedOption.text;
+                    const priceMatch = optionText.match(/UGX ([\d,]+)/);
+                    const price = priceMatch ? parseInt(priceMatch[1].replace(/,/g, '')) : 0;
+                    const productName = optionText.split(' (UGX')[0];
+                    
+                    const quantity = parseInt(quantityInput.value) || 0;
+                    const subtotal = price * quantity;
+                    const distance = parseFloat(distanceInput.value) || 0;
+                    const transportFee = transportCheckbox.checked ? (distance * TRANSPORT_RATE) : 0;
+                    const total = subtotal + transportFee;
+                    
+                    // Update preview
+                    document.getElementById('preview-item').textContent = productName;
+                    document.getElementById('preview-rate').textContent = price.toLocaleString();
+                    document.getElementById('preview-qty').textContent = quantity;
+                    document.getElementById('preview-subtotal').textContent = subtotal.toLocaleString();
+                    document.getElementById('preview-distance').textContent = distance;
+                    document.getElementById('preview-transport').textContent = transportFee.toLocaleString();
+                    document.getElementById('preview-total').textContent = total.toLocaleString();
+                    
+                    // Show/hide transport section
+                    document.getElementById('transport-preview').style.display = transportCheckbox.checked ? 'block' : 'none';
+                }
+                
+                // Attach event listeners
+                document.querySelector('select[name="product"]').addEventListener('change', updatePreview);
+                document.querySelector('input[name="quantity_sold"]').addEventListener('input', updatePreview);
+                document.querySelector('input[name="requires_transport"]').addEventListener('change', updatePreview);
+                document.querySelector('input[name="delivery_distance_km"]').addEventListener('input', updatePreview);
+                
+                // Initial update
+                updatePreview();
+                </script>
             </div>
         </div>
     </div>
