@@ -1,4 +1,6 @@
 {% extends 'base.html' %}
+{% load humanize %}
+
 
 {% block active_credit %}active{% endblock %}
 
@@ -44,9 +46,9 @@
             <tr style="border-bottom: 1px solid #f1f5f9;">
                 <td style="padding: 14px; font-weight: 600; color: #1e293b;">{{ debt.supplier.name }}</td>
                 <!-- <td style="padding: 14px; font-family: monospace;">{{ debt.invoice_number }}</td> -->
-                <td style="padding: 14px;">UGX {{ debt.total_amount }}</td>
-                <td style="padding: 14px; color: #166534;">UGX {{ debt.amount_paid }}</td>
-                <td style="padding: 14px; font-weight: bold; color: #b91c1c;">UGX {{ debt.balance_due }}</td>
+                <td style="padding: 14px;">UGX {{ debt.total_amount|intcomma }}</td>
+                <td style="padding: 14px; color: #166534;">UGX {{ debt.amount_paid|intcomma }}</td>
+                <td style="padding: 14px; font-weight: bold; color: #b91c1c;">UGX {{ debt.balance_due|intcomma }}</td>
                 <td style="padding: 14px; color: #475569;">{{ debt.due_date|date:"d M Y" }}</td>
                 <td style="padding: 14px;">
                    
@@ -78,27 +80,27 @@
     <div class="modal-overlay">
         <div class="modal-box">
             <a href="?" class="close-x">&times;</a>
-            <h3 style="margin-bottom: 20px; color: #0f172a;">Record Supplier Credit Purchase</h3>
+            <h3 style="margin-bottom: 20px; color: #0f172a;">Record Supplier Credit</h3>
             <form method="POST" action="{% url 'credit' %}">
                 {% csrf_token %}
                 <input type="hidden" name="form_action" value="create_credit">
                 
                 <div class="field">
-                    <label>Select Manufacturer/Supplier:</label>
-                    <select name="supplier" required>
-                        <option value="">-- Choose Corporate Supplier --</option>
+                    <label>Select Supplier:</label>
+                    <select name="supplier" class="{% if 'supplier' in error_fields %}error-border{% endif %}">
+                        <option value="">-- Choose Supplier --</option>
                         {% for sup in suppliers %}
                             <option value="{{ sup.id }}">{{ sup.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="field"><label>Supplier Invoice Reference Code:</label><input type="text" name="invoice_number" required></div>
-                <div class="field"><label>Total Invoice Value (UGX):</label><input type="number" name="total_amount" min="0" required></div>
-                <div class="field"><label>Downpayment / Paid Upfront (UGX):</label><input type="number" name="amount_paid" min="0" value="0" required></div>
-                <div class="field"><label>Repayment Deadline Date:</label><input type="date" name="due_date" required></div>
+                <div class="field"><label>Supplier Invoice Reference Code:</label><input type="text" name="invoice_number" value="{{ form_data.invoice_number }}" class="{% if 'invoice_number' in error_fields %}error-border{% endif %}"></div>
+                <div class="field"><label>Total Invoice Value (UGX):</label><input type="number" name="total_amount" min="0" value="{{ form_data.total_amount }}" class="{% if 'total_amount' in error_fields %}error-border{% endif %}"></div>
+                <div class="field"><label>Downpayment (UGX):</label><input type="number" name="amount_paid" min="0" value="{{ form_data.amount_paid|default:'0' }}" class="{% if 'amount_paid' in error_fields %}error-border{% endif %}"></div>
+                <div class="field"><label>Repayment Deadline Date:</label><input type="date" name="due_date" value="{{ form_data.due_date }}" class="{% if 'due_date' in error_fields %}error-border{% endif %}"></div>
                 
                 <button type="submit" class="btn" style="background: #e11d48; color: white; width: 100%; font-size: 15px;">
-                    Log Debt Statement into General Ledger
+                    Register Credit Purchase
                 </button>
             </form>
         </div>
@@ -114,9 +116,7 @@
             <h3 style="margin-bottom: 10px; color: #0f172a;">Clear Supplier Liability</h3>
             <p style="color: #64748b; font-size: 14px; margin-bottom: 20px;">
                 Paying: <strong>{{ target_credit.supplier.name }}</strong> (Invoice: #{{ target_credit.invoice_number }})<br>
-                Outstanding Balance: <strong style="color: #b91c1c;">UGX {{ target_credit.balance_due }}</strong>
-            </p>
-            
+                Outstanding Balance: <strong style="color: #b91c1c;">UGX {{ target_credit.balance_due|intcomma }}</strong>
             <form method="POST" action="{% url 'credit' %}">
                 {% csrf_token %}
                 <input type="hidden" name="form_action" value="pay_credit">
@@ -124,11 +124,11 @@
                 
                 <div class="field">
                     <label>Repayment Cash Paid Out (UGX):</label>
-                    <input type="number" name="payment_amount" max="{{ target_credit.balance_due }}" min="1" placeholder="Enter amount to clear" required>
+                    <input type="number" name="payment_amount" max="{{ target_credit.balance_due }}" min="1" placeholder="Enter amount to clear" class="{% if 'payment_amount' in error_fields %}error-border{% endif %}">
                 </div>
                 
                 <button type="submit" class="btn" style="background: #10b981; color: white; width: 100%; font-size: 15px;">
-                    Post Bill Settlement Payment
+                 Make Payment
                 </button>
             </form>
         </div>

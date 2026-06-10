@@ -52,8 +52,7 @@ class Product(models.Model):
         return f"{self.name} ({self.quantity_in_stock} left)"
 
 
-# from django.db import models
-# from .models import Product, DepositAccount  # Linking our previous modules
+
 class DepositAccount(models.Model):
     account_number = models.CharField(max_length=20, unique=True, verbose_name="Scheme Account Number")
     customer_name = models.CharField(max_length=255, verbose_name="Salary Earner Name")
@@ -71,7 +70,7 @@ class DepositAccount(models.Model):
         if self.current_balance < 0:
             raise ValidationError({'current_balance': 'The initial balance cannot be negative.'})
         
-        # 1. STRICT UGANDAN PHONE NUMBER VALIDATION RULE
+        #  STRICT UGANDAN PHONE NUMBER VALIDATION RULE
         # Matches: +2567... (13 chars) or 07... (10 chars) for standard MTN/Airtel networks
         phone_cleaned = self.phone_number.strip().replace(" ", "")
         phone_regex = r'^(?:\+256|0)7[0-9]{8}$'
@@ -80,7 +79,7 @@ class DepositAccount(models.Model):
                 'phone_number': 'Enter a valid Ugandan mobile phone number (e.g., 077XXXXXXX or +25678XXXXXXX).'
             })
             
-        # 2. STRICT UGANDAN NATIONAL ID (NIN) VALIDATION RULE
+        #  STRICT UGANDAN NATIONAL ID (NIN) VALIDATION RULE
         # Must be exactly 14 characters, starting with CM (Citizens Male) or CW (Citizens Female)
         nin_cleaned = self.national_id_nin.strip().upper()
         nin_regex = r'^(CM|CF)[A-Z0-9]{12}$'

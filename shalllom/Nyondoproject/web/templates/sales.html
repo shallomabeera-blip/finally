@@ -1,8 +1,15 @@
 {% extends 'base.html' %}
+{% load humanize %}
 
 {% block active_sales %}active{% endblock %}
 
 {% block content %}
+    <style>
+        .error-border {
+            border: 1px solid #dc2626 !important;
+            background-color: #fef2f2 !important;
+        }
+    </style>
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
         <h2>Sales Ledger & Point of Sale</h2>
         <a href="?show_modal=new_sale" class="btn" style="background: #013220; color: white;">+ Record New Sale</a>
@@ -52,9 +59,9 @@
                 </td>
                 <td style="padding: 14px;">{{ sale.quantity_sold }} pcs</td>
                 <td style="padding: 14px; color: #64748b;">
-                    {% if sale.requires_transport %}UGX {{ sale.transport_charge }}{% else %}-{% endif %}
+                    {% if sale.requires_transport %}UGX {{ sale.transport_charge|intcomma }}{% else %}-{% endif %}
                 </td>
-                <td style="padding: 14px; font-weight: bold; color: #16a34a;">UGX {{ sale.grand_total }}</td>
+                <td style="padding: 14px; font-weight: bold; color: #16a34a;">UGX {{ sale.grand_total|intcomma }}</td>
                 <td style="padding: 14px;">
                     <span style="font-size: 13px; padding: 4px 8px; background: #f1f5f9; border-radius: 4px; font-weight: 500;">
                         {{ sale.get_payment_method_display }}
@@ -88,11 +95,11 @@
                     
                     <div class="field">
                         <label>Select Product:</label>
-                        <select name="product" required>
+                        <select name="product" class="{% if 'product' in error_fields %}error-border{% endif %}">
                             <option value="">-- Choose Stock Item --</option>
                             {% for prod in products %}
                                 <option value="{{ prod.id }}">
-                                    {{ prod.name }} (UGX {{ prod.selling_price }})
+                                    {{ prod.name }} (UGX {{ prod.selling_price|intcomma }})
                                 </option>
                             {% endfor %}
                         </select>
@@ -100,7 +107,7 @@
 
                     <div class="field">
                         <label>Quantity to Purchase:</label>
-                        <input type="number" name="quantity_sold" min="1" placeholder="Enter quantity" required>
+                        <input type="number" name="quantity_sold" min="1" placeholder="Enter quantity" class="{% if 'quantity_sold' in error_fields %}error-border{% endif %}">
                     </div>
 
                     <div style="background: #f8fafc; padding: 12px; border-radius: 6px; margin-bottom: 15px; border: 1px solid #e2e8f0;">
@@ -116,7 +123,7 @@
 
                     <div class="field">
                         <label>Settlement Payment Method:</label>
-                        <select name="payment_method" required>
+                        <select name="payment_method">
                             <option value="CASH">Cash / Mobile Money Checkout</option>
                             <option value="DEPOSIT_SCHEME">Salary Deposit Scheme Balance</option>
                         </select>
@@ -127,13 +134,13 @@
                         <select name="customer_account">
                             <option value="">-- Choose Account Owner --</option>
                             {% for acc in deposit_accounts %}
-                                <option value="{{ acc.id }}">{{ acc.customer_name }} (UGX {{ acc.current_balance }})</option>
+                                <option value="{{ acc.id }}">{{ acc.customer_name }} (UGX {{ acc.current_balance|intcomma }})</option>
                             {% endfor %}
                         </select>
                     </div>
 
                     <button type="submit" class="btn" style="background: #16a34a; color: white; width: 100%; font-size: 14px; padding: 12px;">
-                        Authorize Order & Finalize Sale
+                        Record Sale & Generate Receipt
                     </button>
                 </form>
             </div>
@@ -164,60 +171,6 @@
                     </div>
                 </div>
                 
-                <script>
-                const TRANSPORT_RATE = 3000;
-                
-                function updatePreview() {
-                    const productSelect = document.querySelector('select[name="product"]');
-                    const quantityInput = document.querySelector('input[name="quantity_sold"]');
-                    const transportCheckbox = document.querySelector('input[name="requires_transport"]');
-                    const distanceInput = document.querySelector('input[name="delivery_distance_km"]');
-                    
-                    if (!productSelect || !productSelect.value) {
-                        document.getElementById('preview-item').textContent = 'Select a product';
-                        document.getElementById('preview-rate').textContent = '0';
-                        document.getElementById('preview-qty').textContent = '0';
-                        document.getElementById('preview-subtotal').textContent = '0';
-                        document.getElementById('preview-total').textContent = '0';
-                        document.getElementById('transport-preview').style.display = 'none';
-                        return;
-                    }
-                    
-                    // Extract price and name from the selected option
-                    const selectedOption = productSelect.options[productSelect.selectedIndex];
-                    const optionText = selectedOption.text;
-                    const priceMatch = optionText.match(/UGX ([\d,]+)/);
-                    const price = priceMatch ? parseInt(priceMatch[1].replace(/,/g, '')) : 0;
-                    const productName = optionText.split(' (UGX')[0];
-                    
-                    const quantity = parseInt(quantityInput.value) || 0;
-                    const subtotal = price * quantity;
-                    const distance = parseFloat(distanceInput.value) || 0;
-                    const transportFee = transportCheckbox.checked ? (distance * TRANSPORT_RATE) : 0;
-                    const total = subtotal + transportFee;
-                    
-                    // Update preview
-                    document.getElementById('preview-item').textContent = productName;
-                    document.getElementById('preview-rate').textContent = price.toLocaleString();
-                    document.getElementById('preview-qty').textContent = quantity;
-                    document.getElementById('preview-subtotal').textContent = subtotal.toLocaleString();
-                    document.getElementById('preview-distance').textContent = distance;
-                    document.getElementById('preview-transport').textContent = transportFee.toLocaleString();
-                    document.getElementById('preview-total').textContent = total.toLocaleString();
-                    
-                    // Show/hide transport section
-                    document.getElementById('transport-preview').style.display = transportCheckbox.checked ? 'block' : 'none';
-                }
-                
-                // Attach event listeners
-                document.querySelector('select[name="product"]').addEventListener('change', updatePreview);
-                document.querySelector('input[name="quantity_sold"]').addEventListener('input', updatePreview);
-                document.querySelector('input[name="requires_transport"]').addEventListener('change', updatePreview);
-                document.querySelector('input[name="delivery_distance_km"]').addEventListener('input', updatePreview);
-                
-                // Initial update
-                updatePreview();
-                </script>
             </div>
         </div>
     </div>
@@ -238,15 +191,15 @@
             <div style="font-size: 13px; line-height: 1.6; margin-bottom: 15px; border-bottom: 1px dashed #000; padding-bottom: 15px;">
                 <p><strong>Item Purchased:</strong> {{ receipt.product.name }}</p>
                 <p><strong>Quantity:</strong> {{ receipt.quantity_sold }} pcs</p>
-                <p><strong>Base Total:</strong> UGX {{ receipt.product_total }}</p>
+                <p><strong>Total:</strong> UGX {{ receipt.product_total|intcomma }}</p>
                 {% if receipt.requires_transport %}
-                <p><strong>Transport Fee:</strong> UGX {{ receipt.transport_charge }}</p>
+                <p><strong>Transport Fee:</strong> UGX {{ receipt.transport_charge|intcomma }}</p>
                 {% endif %}
             </div>
 
             <div style="font-size: 14px; font-weight: bold; display: flex; justify-content: space-between; margin-bottom: 15px;">
                 <span>GRAND TOTAL PAID:</span>
-                <span>UGX {{ receipt.grand_total }}</span>
+                <span>UGX {{ receipt.grand_total|intcomma }}</span>
             </div>
 
             <div style="text-align: center; font-size: 12px; color: #555;">
@@ -256,7 +209,7 @@
 
             <div style="margin-top: 25px;">
                 <button class="btn" style="background: #0f172a; color: white; width: 100%; font-family:sans-serif;" onclick="window.print()">
-                    Physical Print System Receipt
+                    Print Receipt
                 </button>
             </div>
         </div>

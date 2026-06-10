@@ -1,9 +1,18 @@
 {% extends 'base.html' %}
+{% load humanize %}
+
+
 
 
 {% block active_stock %}active{% endblock %}
 
 {% block content %}
+    <style>
+        .error-border {
+            border: 1px solid #dc2626 !important;
+            background-color: #fef2f2 !important;
+        }
+    </style>
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
         <h2>Unified Stock & Inventory Ledger</h2>
         <div>
@@ -13,11 +22,19 @@
     </div>
 
     {% if messages %}
+    <div style="margin-bottom: 20px;">
         {% for message in messages %}
-            <div style="padding: 12px; border-radius: 4px; background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; margin-bottom: 20px; font-weight: 500;">
-                {{ message }}
-            </div>
+            {% if 'error' in message.tags or 'Failed' in message|stringformat:'s' or 'Error' in message|stringformat:'s' %}
+                <div style="padding: 12px; border-radius: 4px; background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; font-weight: 500; margin-bottom: 8px;">
+                    {{ message }}
+                </div>
+            {% else %}
+                <div style="padding: 12px; border-radius: 4px; background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0; font-weight: 500; margin-bottom: 8px;">
+                    {{ message }}
+                </div>
+            {% endif %}
         {% endfor %}
+    </div>
     {% endif %}
 
    
@@ -41,7 +58,7 @@
                 <td style="padding: 14px; font-weight: 600; color: #1e293b;">{{ product.name }}</td>
                 <td style="padding: 14px; color: #475569;">{{ product.category.name }}</td>
                 <td style="padding: 14px; color: #475569;">{{ product.supplier.name }}</td>
-                <td style="padding: 14px; font-weight: 500; color: #0f172a;">UGX {{ product.selling_price }}</td>
+                <td style="padding: 14px; font-weight: 500; color: #0f172a;">UGX {{ product.selling_price|intcomma }}</td>
                 <td style="padding: 14px; font-weight: 600;">{{ product.quantity_in_stock }}</td>
                 <td style="padding: 14px;">
                     {% if product.quantity_in_stock == 0 %}
@@ -74,10 +91,10 @@
                 {% csrf_token %}
                 <input type="hidden" name="form_action" value="create_category">
                 
-                <div class="field"><label>Category Name:</label><input type="text" name="category_name" required></div>
-                <div class="field"><label>Description:</label><textarea name="category_description" rows="3"></textarea></div>
+                <div class="field"><label>Category Name:</label><input type="text" name="category_name" value="{{ form_data.category_name }}" class="{% if 'category_name' in error_fields %}error-border{% endif %}"></div>
+                <div class="field"><label>Description:</label><textarea name="category_description" rows="3">{{ form_data.category_description }}</textarea></div>
                 
-                <button type="submit" class="btn" style="background: #7c3aed; color: white; width: 100%;">Save Category</button>
+                <button type="submit" class="btn" style="background: #334155; color: white; width: 100%;">Save Category</button>
             </form>
         </div>
     </div>
@@ -96,29 +113,29 @@
                 
                 <div class="field">
                     <label>Assigned Supplier:</label>
-                    <select name="supplier" required>
+                    <select name="supplier" class="{% if 'supplier' in error_fields %}error-border{% endif %}">
                         <option value="">-- Select Supplier --</option>
                         {% for supplier in suppliers %}
-                            <option value="{{ supplier.id }}">{{ supplier.name }}</option>
+                            <option value="{{ supplier.id }}" {% if supplier.id|stringformat:"s" == form_data.supplier_id %}selected{% endif %}>{{ supplier.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
                 <div class="field">
                     <label>Product Category:</label>
-                    <select name="category" required>
+                    <select name="category" class="{% if 'category' in error_fields %}error-border{% endif %}">
                         <option value="">-- Select Category --</option>
                         {% for category in categories %}
-                            <option value="{{ category.id }}">{{ category.name }}</option>
+                            <option value="{{ category.id }}" {% if category.id|stringformat:"s" == form_data.category_id %}selected{% endif %}>{{ category.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="field"><label>SKU Code:</label><input type="text" name="sku" required></div>
-                <div class="field"><label>Item Name:</label><input type="text" name="name" required></div>
-                <div class="field"><label>Technical Specifications:</label><textarea name="specifications" rows="2"></textarea></div>
-                <div class="field"><label>Cost Price (UGX):</label><input type="number" name="cost_price" min="0" required></div>
-                <div class="field"><label>Selling Price (UGX):</label><input type="number" name="selling_price" min="0" required></div>
-                <div class="field"><label>Quantity:</label><input type="number" name="quantity_in_stock" min="0" required></div>
-                <div class="field"><label>Low Stock Warning Threshold:</label><input type="number" name="low_stock_threshold" min="0" value="5" required></div>
+                <div class="field"><label>SKU Code:</label><input type="text" name="sku" value="{{ form_data.sku }}" class="{% if 'sku' in error_fields %}error-border{% endif %}"></div>
+                <div class="field"><label>Item Name:</label><input type="text" name="name" value="{{ form_data.name }}" class="{% if 'name' in error_fields %}error-border{% endif %}"></div>
+                <div class="field"><label>Technical Specifications:</label><textarea name="specifications" rows="2">{{ form_data.specifications }}</textarea></div>
+                <div class="field"><label>Cost Price (UGX):</label><input type="number" name="cost_price" min="0" value="{{ form_data.cost_price }}" class="{% if 'cost_price' in error_fields %}error-border{% endif %}"></div>
+                <div class="field"><label>Selling Price (UGX):</label><input type="number" name="selling_price" min="0" value="{{ form_data.selling_price }}" class="{% if 'selling_price' in error_fields %}error-border{% endif %}"></div>
+                <div class="field"><label>Quantity:</label><input type="number" name="quantity_in_stock" min="0" value="{{ form_data.quantity_in_stock }}" class="{% if 'quantity_in_stock' in error_fields %}error-border{% endif %}"></div>
+                <div class="field"><label>Low Stock Warning Threshold:</label><input type="number" name="low_stock_threshold" min="0" value="{{ form_data.low_stock_threshold|default:'5' }}"></div>
                 
                 <button type="submit" class="btn" style="background: #16a34a; color: white; width: 100%;">Save New Product</button>
             </form>
@@ -140,7 +157,7 @@
                 
                 <div class="field">
                     <label>Assigned Supplier:</label>
-                    <select name="supplier" required>
+                    <select name="supplier">
                         {% for supplier in suppliers %}
                             <option value="{{ supplier.id }}" {% if supplier.id == edit_product.supplier.id %}selected{% endif %}>{{ supplier.name }}</option>
                         {% endfor %}
@@ -148,19 +165,19 @@
                 </div>
                 <div class="field">
                     <label>Product Category:</label>
-                    <select name="category" required>
+                    <select name="category">
                         {% for category in categories %}
                             <option value="{{ category.id }}" {% if category.id == edit_product.category.id %}selected{% endif %}>{{ category.name }}</option>
                         {% endfor %}
                     </select>
                 </div>
-                <div class="field"><label>SKU Code:</label><input type="text" name="sku" value="{{ edit_product.sku }}" required></div>
-                <div class="field"><label>Item Name:</label><input type="text" name="name" value="{{ edit_product.name }}" required></div>
+                <div class="field"><label>SKU Code:</label><input type="text" name="sku" value="{{ edit_product.sku }}" class="{% if 'sku' in error_fields %}error-border{% endif %}"></div>
+                <div class="field"><label>Item Name:</label><input type="text" name="name" value="{{ edit_product.name }}" class="{% if 'name' in error_fields %}error-border{% endif %}"></div>
                 <div class="field"><label>Technical Specifications:</label><textarea name="specifications" rows="2">{{ edit_product.specifications }}</textarea></div>
-                <div class="field"><label>Cost Price (UGX):</label><input type="number" name="cost_price" min="0" value="{{ edit_product.cost_price }}" required></div>
-                <div class="field"><label>Selling Price (UGX):</label><input type="number" name="selling_price" min="0" value="{{ edit_product.selling_price }}" required></div>
-                <div class="field"><label>Quantity:</label><input type="number" name="quantity_in_stock" min="0" value="{{ edit_product.quantity_in_stock }}" required></div>
-                <div class="field"><label>Low Stock Warning Threshold:</label><input type="number" name="low_stock_threshold" min="0" value="{{ edit_product.low_stock_threshold }}" required></div>
+                <div class="field"><label>Cost Price (UGX):</label><input type="number" name="cost_price" min="0" value="{{ edit_product.cost_price }}" class="{% if 'cost_price' in error_fields %}error-border{% endif %}"></div>
+                <div class="field"><label>Selling Price (UGX):</label><input type="number" name="selling_price" min="0" value="{{ edit_product.selling_price }}" class="{% if 'selling_price' in error_fields %}error-border{% endif %}"></div>
+                <div class="field"><label>Quantity:</label><input type="number" name="quantity_in_stock" min="0" value="{{ edit_product.quantity_in_stock }}" class="{% if 'quantity_in_stock' in error_fields %}error-border{% endif %}"></div>
+                <div class="field"><label>Low Stock Warning Threshold:</label><input type="number" name="low_stock_threshold" min="0" value="{{ edit_product.low_stock_threshold }}"></div>
                 
                 <button type="submit" class="btn" style="background: #2563eb; color: white; width: 100%;">Apply Changes</button>
             </form>

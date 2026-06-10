@@ -82,15 +82,15 @@
                 
                 <div class="field">
                     <label>Username:</label>
-                    <input type="text" name="username" placeholder="e.g., john" required autocomplete="off">
+                    <input type="text" name="username" placeholder="e.g., john" autocomplete="off" class="{% if 'username' in error_fields %}error-border{% endif %}">
                 </div>
                 <div class="field">
                     <label>First Name:</label>
-                    <input type="text" name="first_name" required>
+                    <input type="text" name="first_name" class="{% if 'first_name' in error_fields %}error-border{% endif %}">
                 </div>
                 <div class="field">
                     <label>Last Name:</label>
-                    <input type="text" name="last_name" required>
+                    <input type="text" name="last_name" class="{% if 'last_name' in error_fields %}error-border{% endif %}">
                 </div>
                 <div class="field">
                     <label>Email:</label>
@@ -99,7 +99,7 @@
                 
                 <div class="field">
                     <label>Role:</label>
-                    <select name="role" required>
+                    <select name="role" class="{% if 'role' in error_fields %}error-border{% endif %}">
                         {% for code, label in role_choices %}
                             <option value="{{ code }}">{{ label }}</option>
                         {% endfor %}
@@ -108,7 +108,7 @@
                 
                 <div class="field">
                     <label>Password:</label>
-                    <input type="password" name="password" minlength="4" required>
+                    <input type="password" name="password" minlength="4" class="{% if 'password' in error_fields %}error-border{% endif %}">
                 </div>
                 
                 <button type="submit" class="btn" style="background: #2563eb; color: white; width: 100%; font-size: 15px; padding: 12px;">

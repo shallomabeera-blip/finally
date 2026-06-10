@@ -1,4 +1,7 @@
 {% extends 'base.html' %}
+{% load humanize %}
+
+
 
 {% block extra_head %}
 <style>
@@ -131,7 +134,7 @@
 {% if messages %}
     <div style="margin-bottom: 20px;">
         {% for message in messages %}
-            <div style="padding: 12px 15px; border-radius: 4px; margin-bottom: 10px; {% if message.tags %}background-color: {% if 'error' in message.tags %}#fee2e2{% else %}#dcfce7{% endif %}; color: {% if 'error' in message.tags %}#991b1b{% else %}#166534{% endif %};{% endif %}">
+            <div style="padding: 12px 15px; border-radius: 4px; margin-bottom: 10px; background-color: {% if 'error' in message.tags %}#fee2e2{% else %}#dcfce7{% endif %}; color: {% if 'error' in message.tags %}#991b1b{% else %}#166534{% endif %}; border: 1px solid {% if 'error' in message.tags %}#fca5a5{% else %}#bbf7d0{% endif %}; font-weight: 500;">
                 {{ message }}
             </div>
         {% endfor %}
@@ -163,7 +166,7 @@
                         {% with credits=supplier.credits.all %}
                             {% if credits %}
                                 <span style="background-color: #fef3c7; color: #92400e; padding: 4px 8px; border-radius: 3px; font-weight: bold;">
-                                    UGX {% for credit in credits %}{% if credit.balance_due > 0 %}{{ credit.balance_due|floatformat:0 }}{% endif %}{% endfor %}
+                                    UGX {% for credit in credits %}{% if credit.balance_due > 0 %}{{ credit.balance_due|floatformat:0|intcomma }}{% endif %}{% endfor %}
                                 </span>
                             {% else %}
                                 <span style="color: #6b7280;">No credits</span>
@@ -183,7 +186,7 @@
 {% else %}
     <div class="empty-state">
         <div class="empty-icon"></div>
-        <div class="empty-message">No suppliers registered yet. Create your first supplier to get started.</div>
+        <div class="empty-message">No suppliers registered yet.</div>
         <a href="?show_modal=add" class="btn-primary">+ Add Supplier</a>
     </div>
 {% endif %}
@@ -199,11 +202,11 @@
                 <input type="hidden" name="form_action" value="create">
                 <div class="field">
                     <label for="name">Supplier Name *</label>
-                    <input type="text" id="name" name="name" required placeholder="e.g., ABC Hardware Supplies">
+                    <input type="text" id="name" name="name" value="{{ form_data.name }}" class="{% if 'name' in error_fields %}error-border{% endif %}" placeholder="e.g., ABC Hardware Supplies">
                 </div>
                 <div class="field">
                     <label for="phone">Contact Phone *</label>
-                    <input type="tel" id="phone" name="phone" required placeholder="e.g., 0712345678">
+                    <input type="tel" id="phone" name="phone" value="{{ form_data.phone }}" class="{% if 'phone' in error_fields %}error-border{% endif %}" placeholder="e.g., 0712345678">
                 </div>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <a href="{% url 'supplier_management' %}" style="flex: 1; padding: 10px; background-color: #e2e8f0; color: #1e293b; text-align: center; border-radius: 4px; text-decoration: none; font-weight: bold;">Cancel</a>
@@ -226,11 +229,11 @@
                 <input type="hidden" name="supplier_id" value="{{ edit_supplier.id }}">
                 <div class="field">
                     <label for="name">Supplier Name *</label>
-                    <input type="text" id="name" name="name" required value="{{ edit_supplier.name }}">
+                    <input type="text" id="name" name="name" value="{{ form_data.name|default:edit_supplier.name }}" class="{% if 'name' in error_fields %}error-border{% endif %}">
                 </div>
                 <div class="field">
                     <label for="phone">Contact Phone *</label>
-                    <input type="tel" id="phone" name="phone" required value="{{ edit_supplier.phone }}">
+                    <input type="tel" id="phone" name="phone" value="{{ form_data.phone|default:edit_supplier.phone }}" class="{% if 'phone' in error_fields %}error-border{% endif %}">
                 </div>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <a href="{% url 'supplier_management' %}" style="flex: 1; padding: 10px; background-color: #e2e8f0; color: #1e293b; text-align: center; border-radius: 4px; text-decoration: none; font-weight: bold;">Cancel</a>

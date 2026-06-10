@@ -73,15 +73,13 @@ def require_role(*allowed_roles):
     return decorator
 
 
-# =========================================================
-# 2. CORE SYSTEM VIEWS (Login, Logout, Landing)
-# =========================================================
+#  CORE SYSTEM VIEWS (Login, Logout, Landing)
 
 def index(request):
-    """Public facing root application entry path."""
+    """Public landing page shown before login."""
     if request.user.is_authenticated:
         return redirect(role_home(request.user.role))
-    return redirect('login')
+    return render(request, 'index.html')
 
 
 def login_view(request):
@@ -89,24 +87,38 @@ def login_view(request):
     if request.user.is_authenticated:
         return redirect(role_home(request.user.role))
 
+    error_fields = []
+    username_input = ''
+
     if request.method == 'POST':
         username_input = request.POST.get('username', '').strip()
         password_input = request.POST.get('password', '')
 
-        # Authenticate checks the password hash securely against the SQLite backend
-        user = authenticate(request, username=username_input, password=password_input)
+        if not username_input:
+            error_fields.append('username')
+        if not password_input:
+            error_fields.append('password')
 
-        if user is not None:
-            if user.is_active:
-                login(request, user)
-                messages.success(request, f"Welcome back, {user.username}!")
-                return redirect(role_home(user.role))
+        if not error_fields:
+            # Authenticate checks the password hash securely against the SQLite backend
+            user = authenticate(request, username=username_input, password=password_input)
+
+            if user is not None:
+                if user.is_active:
+                    login(request, user)
+                    messages.success(request, f"Welcome back, {user.username}!")
+                    return redirect(role_home(user.role))
+                else:
+                    messages.error(request, "Your account profile has been disabled by management.")
             else:
-                messages.error(request, "Your account profile has been disabled by management.")
+                messages.error(request, "Invalid credentials. Please verify your username and password.")
         else:
-            messages.error(request, "Invalid credentials. Please verify your username and password.")
+            messages.error(request, "Please fill in all required login fields.")
 
-    return render(request, 'login.html')
+    return render(request, 'login.html', {
+        'error_fields': error_fields,
+        'username_input': username_input,
+    })
 
 
 def logout_view(request):
@@ -116,9 +128,8 @@ def logout_view(request):
     return redirect('login')
 
 
-# =========================================================
-# 3. ACCOUNT CONTROL & BUSINESS VIEWS
-# =========================================================
+
+#  ACCOUNT CONTROL & BUSINESS VIEWS
 
 @login_required
 @require_role('ADMIN')
@@ -134,6 +145,22 @@ def user_management(request):
             email_input = request.POST.get('email', '').strip()
             password_input = request.POST.get('password', '')
             role_input = request.POST.get('role', '')
+
+            error_fields = []
+            if not username_input:
+                error_fields.append('username')
+            if not first_name:
+                error_fields.append('first_name')
+            if not last_name:
+                error_fields.append('last_name')
+            if not role_input:
+                error_fields.append('role')
+            if not password_input:
+                error_fields.append('password')
+
+            if error_fields:
+                messages.error(request, "User creation failed: Please fill in all required fields.")
+                return redirect(f"/users/?show_modal=add&error_fields={','.join(error_fields)}&username={username_input}&first_name={first_name}&last_name={last_name}&email={email_input}&role={role_input}")
 
             try:
                 if User.objects.filter(username=username_input).exists():
@@ -161,7 +188,15 @@ def user_management(request):
     context = {
         'employees': users,
         'role_choices': User.ROLE_CHOICES,
-        'today': timezone.now()
+        'today': timezone.now(),
+        'error_fields': request.GET.get('error_fields', '').split(',') if request.GET.get('error_fields') else [],
+        'form_data': {
+            'username': request.GET.get('username', ''),
+            'first_name': request.GET.get('first_name', ''),
+            'last_name': request.GET.get('last_name', ''),
+            'email': request.GET.get('email', ''),
+            'role': request.GET.get('role', ''),
+        },
     }
     
     # Handle show_modal GET parameter for displaying modals
@@ -217,9 +252,13 @@ def stock(request):
             cat_name = request.POST.get('category_name', '').strip()
             cat_desc = request.POST.get('category_description', '').strip()
             
+            if not cat_name:
+                messages.error(request, "Error: Category name is required.")
+                return redirect(f'/stock/?show_modal=add_category&error_fields=category_name&category_name={cat_name}&category_description={cat_desc}')
+
             if Category.objects.filter(name__iexact=cat_name).exists():
                 messages.error(request, "Error: This product category already exists.")
-                return redirect('/stock/?show_modal=add_category')
+                return redirect(f'/stock/?show_modal=add_category&error_fields=category_name&category_name={cat_name}&category_description={cat_desc}')
             
             Category.objects.create(name=cat_name, description=cat_desc)
             messages.success(request, f"Category '{cat_name}' added successfully!")
@@ -232,52 +271,85 @@ def stock(request):
             sku = request.POST.get('sku', '').strip()
             name = request.POST.get('name', '').strip()
             specifications = request.POST.get('specifications', '').strip()
-            cost_price = Decimal(request.POST.get('cost_price', '0'))
-            selling_price = Decimal(request.POST.get('selling_price', '0'))
-            quantity = int(request.POST.get('quantity_in_stock', '0'))
-            threshold = int(request.POST.get('low_stock_threshold', '5'))
+            cost_raw = request.POST.get('cost_price', '').strip()
+            sell_raw = request.POST.get('selling_price', '').strip()
+            qty_raw = request.POST.get('quantity_in_stock', '').strip()
+            thresh_raw = request.POST.get('low_stock_threshold', '').strip()
+
+            # Track missing fields for UI feedback
+            error_fields = []
+            if not supplier_id: error_fields.append('supplier')
+            if not category_id: error_fields.append('category')
+            if not sku: error_fields.append('sku')
+            if not name: error_fields.append('name')
+            if not cost_raw: error_fields.append('cost_price')
+            if not sell_raw: error_fields.append('selling_price')
+            if not qty_raw: error_fields.append('quantity_in_stock')
+
+            if error_fields:
+                messages.error(request, "Product creation failed: Please fill in all required fields.")
+                err_query = ",".join(error_fields)
+                return redirect(f'/stock/?show_modal=add&error_fields={err_query}&sku={sku}&name={name}&spec={specifications}&cost={cost_raw}&sell={sell_raw}&qty={qty_raw}&thresh={thresh_raw}&supplier={supplier_id or ""}&category={category_id or ""}')
 
             if Product.objects.filter(sku=sku).exists():
                 messages.error(request, "Error: This SKU is already registered.")
-                return redirect('/stock/?show_modal=add')
-
-            product = Product(
-                supplier_id=supplier_id,
-                category_id=category_id,
-                sku=sku,
-                name=name,
-                specifications=specifications,
-                cost_price=cost_price,
-                selling_price=selling_price,
-                quantity_in_stock=quantity,
-                low_stock_threshold=threshold,
-            )
+                return redirect(f'/stock/?show_modal=add&error_fields=sku&sku={sku}&name={name}&spec={specifications}&cost={cost_raw}&sell={sell_raw}&qty={qty_raw}&thresh={thresh_raw}&supplier={supplier_id or ""}&category={category_id or ""}')
 
             try:
+                product = Product(
+                    supplier_id=supplier_id,
+                    category_id=category_id,
+                    sku=sku,
+                    name=name,
+                    specifications=specifications,
+                    cost_price=Decimal(cost_raw or '0'),
+                    selling_price=Decimal(sell_raw or '0'),
+                    quantity_in_stock=int(qty_raw or '0'),
+                    low_stock_threshold=int(thresh_raw or '5'),
+                )
                 product.full_clean()
                 product.save()
                 messages.success(request, "Product added successfully!")
                 return redirect('stock')
             except ValidationError as e:
+                failed_fields = list(e.message_dict.keys()) if hasattr(e, 'message_dict') else []
+                err_query = ",".join(failed_fields)
                 add_validation_messages(request, e)
-                return redirect('/stock/?show_modal=add')
+                return redirect(f'/stock/?show_modal=add&error_fields={err_query}&sku={sku}&name={name}&spec={specifications}&cost={cost_raw}&sell={sell_raw}&qty={qty_raw}&thresh={thresh_raw}&supplier={supplier_id or ""}&category={category_id or ""}')
 
         # ACTION: UPDATE PRODUCT
         elif form_action == 'update':
             product_id = request.POST.get('product_id')
             product = get_object_or_404(Product, id=product_id)
 
-            cost_price = Decimal(request.POST.get('cost_price', '0'))
-            selling_price = Decimal(request.POST.get('selling_price', '0'))
+            # Capture raw values for validation
+            cost_raw = request.POST.get('cost_price', '').strip()
+            sell_raw = request.POST.get('selling_price', '').strip()
+            qty_raw = request.POST.get('quantity_in_stock', '').strip()
+            sku = request.POST.get('sku', '').strip()
+            name = request.POST.get('name', '').strip()
+
+            # Check for empty fields manually for immediate feedback
+            error_fields = []
+            if not sku: error_fields.append('sku')
+            if not name: error_fields.append('name')
+            if not cost_raw: error_fields.append('cost_price')
+            if not sell_raw: error_fields.append('selling_price')
+            if not qty_raw: error_fields.append('quantity_in_stock')
+
+            if error_fields:
+                messages.error(request, "Update Failed: Please fill in all required fields.")
+                err_query = ",".join(error_fields)
+                return redirect(f'/stock/?edit_id={product_id}&error_fields={err_query}')
 
             product.supplier_id = request.POST.get('supplier')
             product.category_id = request.POST.get('category')
-            product.sku = request.POST.get('sku', '').strip()
-            product.name = request.POST.get('name', '').strip()
+            product.sku = sku
+            product.name = name
             product.specifications = request.POST.get('specifications', '').strip()
-            product.cost_price = cost_price
-            product.selling_price = selling_price
-            product.quantity_in_stock = int(request.POST.get('quantity_in_stock', '0'))
+            product.cost_price = Decimal(cost_raw or '0')
+            product.selling_price = Decimal(sell_raw or '0')
+            product.quantity_in_stock = int(qty_raw or '0')
             product.low_stock_threshold = int(request.POST.get('low_stock_threshold', '5'))
 
             try:
@@ -286,8 +358,10 @@ def stock(request):
                 messages.success(request, f"{product.name} updated successfully!")
                 return redirect('stock')
             except ValidationError as e:
+                failed_fields = list(e.message_dict.keys()) if hasattr(e, 'message_dict') else []
+                err_query = ",".join(failed_fields)
                 add_validation_messages(request, e)
-                return redirect(f'/stock/?edit_id={product_id}')
+                return redirect(f'/stock/?edit_id={product_id}&error_fields={err_query}')
 
         # ACTION: DELETE PRODUCT
         elif form_action == 'delete':
@@ -308,10 +382,28 @@ def stock(request):
         'today': timezone.now(),
     }
 
+    # General error field extraction for all modals
+    context['error_fields'] = request.GET.get('error_fields', '').split(',') if request.GET.get('error_fields') else []
+
     if request.GET.get('show_modal') == 'add':
         context['display_add_modal'] = True
+        context['form_data'] = {
+            'sku': request.GET.get('sku', ''),
+            'name': request.GET.get('name', ''),
+            'specifications': request.GET.get('spec', ''),
+            'cost_price': request.GET.get('cost', ''),
+            'selling_price': request.GET.get('sell', ''),
+            'quantity_in_stock': request.GET.get('qty', ''),
+            'low_stock_threshold': request.GET.get('thresh', ''),
+            'supplier_id': request.GET.get('supplier', ''),
+            'category_id': request.GET.get('category', ''),
+        }
     elif request.GET.get('show_modal') == 'add_category':
         context['display_add_category_modal'] = True
+        context['form_data'] = {
+            'category_name': request.GET.get('category_name', ''),
+            'category_description': request.GET.get('category_description', ''),
+        }
 
     edit_id = request.GET.get('edit_id')
     if edit_id:
@@ -344,10 +436,18 @@ def deposit(request):
             except (ValueError, TypeError):
                 initial_deposit = Decimal('0')
 
+            # Track missing fields for UI feedback
+            error_fields = []
+            if not acc_num: error_fields.append('account_number')
+            if not name: error_fields.append('customer_name')
+            if not phone: error_fields.append('phone_number')
+            if not nin: error_fields.append('national_id_nin')
+
             # Validate required fields
-            if not acc_num or not name or not phone or not nin:
-                messages.error(request, "Registration Failed: All fields are required.")
-                return redirect(f"{request.path}?show_modal=add_account&acc_num={acc_num}&name={name}&phone={phone}&nin={nin}&balance={initial_deposit}")
+            if error_fields:
+                messages.error(request, "Registration Failed: Please fill in all required fields.")
+                err_query = ",".join(error_fields)
+                return redirect(f"{request.path}?show_modal=add_account&acc_num={acc_num}&name={name}&phone={phone}&nin={nin}&balance={initial_deposit}&error_fields={err_query}")
 
             try:
                 new_account = DepositAccount(
@@ -363,6 +463,9 @@ def deposit(request):
                 return redirect('deposit')
                 
             except ValidationError as e:
+                # Extract field names from ValidationError to highlight borders
+                failed_fields = list(e.message_dict.keys()) if hasattr(e, 'message_dict') else []
+                err_query = ",".join(failed_fields)
                 # Safe handling if validation error contains a dict or flat list
                 if hasattr(e, 'message_dict'):
                     for field, errors in e.message_dict.items():
@@ -373,7 +476,7 @@ def deposit(request):
                         messages.error(request, f"Registration Failed: {error}")
                 
                 # Dynamic redirect with form data preserved
-                return redirect(f"{request.path}?show_modal=add_account&acc_num={acc_num}&name={name}&phone={phone}&nin={nin}&balance={initial_deposit}")
+                return redirect(f"{request.path}?show_modal=add_account&acc_num={acc_num}&name={name}&phone={phone}&nin={nin}&balance={initial_deposit}&error_fields={err_query}")
 
         elif form_action == 'top_up':
             account_id = request.POST.get('account_id')
@@ -402,6 +505,7 @@ def deposit(request):
 
     if request.GET.get('show_modal') == 'add_account':
         context['display_add_modal'] = True
+        context['error_fields'] = request.GET.get('error_fields', '').split(',') if request.GET.get('error_fields') else []
         # Preserve form values on validation error
         context['form_data'] = {
             'account_number': request.GET.get('acc_num', ''),
@@ -450,9 +554,15 @@ def sales(request):
         # Convert boolean state to clean string component parameter mappings for redirects
         t_param = 'on' if transport_toggle else ''
 
-        if not product_id:
-            messages.error(request, "Transaction Failed: Please select a valid product.")
-            return redirect('/sales/?show_modal=new_sale')
+        # Track missing fields
+        error_fields = []
+        if not product_id: error_fields.append('product')
+        if not qty_sold_raw: error_fields.append('quantity_sold')
+
+        if error_fields:
+            messages.error(request, "Transaction Failed: Please fill in all required fields.")
+            err_query = ",".join(error_fields)
+            return redirect(f'/sales/?show_modal=new_sale&error_fields={err_query}&product={product_id or ""}&quantity_sold={qty_sold_raw or ""}&requires_transport={t_param}&delivery_distance_km={distance}')
 
         product = get_object_or_404(Product, id=product_id)
 
@@ -464,11 +574,11 @@ def sales(request):
 
         if qty_sold <= 0:
             messages.error(request, "Transaction Failed: Quantity must be greater than zero.")
-            return redirect(f'/sales/?show_modal=new_sale&product={product_id}&requires_transport={t_param}&delivery_distance_km={distance}')
+            return redirect(f'/sales/?show_modal=new_sale&product={product_id}&requires_transport={t_param}&delivery_distance_km={distance}&error_fields=quantity_sold')
 
         if distance < 0:
             messages.error(request, "Transaction Failed: Delivery distance cannot be negative.")
-            return redirect(f'/sales/?show_modal=new_sale&product={product_id}&quantity_sold={qty_sold}&requires_transport={t_param}&delivery_distance_km={distance}')
+            return redirect(f'/sales/?show_modal=new_sale&product={product_id}&quantity_sold={qty_sold}&requires_transport={t_param}&delivery_distance_km={distance}&error_fields=delivery_distance_km')
 
         if product.quantity_in_stock < qty_sold:
             messages.error(request, f"Transaction Failed: Insufficient stock! Only {product.quantity_in_stock} left.")
@@ -543,6 +653,7 @@ def sales(request):
     
     if request.GET.get('show_modal') == 'new_sale':
         context['display_sale_modal'] = True  
+        context['error_fields'] = request.GET.get('error_fields', '').split(',') if request.GET.get('error_fields') else []
 
    
     receipt_id = request.GET.get('view_receipt_id')
@@ -563,9 +674,28 @@ def credit(request):
         if form_action == 'create_credit':
             supplier_id = request.POST.get('supplier')
             invoice_num = request.POST.get('invoice_number', '').strip()
-            total_amt = Decimal(request.POST.get('total_amount', '0'))
-            amt_paid = Decimal(request.POST.get('amount_paid', '0'))
+            total_amt_raw = request.POST.get('total_amount', '').strip()
+            amt_paid_raw = request.POST.get('amount_paid', '').strip()
             due_date_str = request.POST.get('due_date')
+
+            error_fields = []
+            if not supplier_id:
+                error_fields.append('supplier')
+            if not invoice_num:
+                error_fields.append('invoice_number')
+            if not total_amt_raw:
+                error_fields.append('total_amount')
+            if not amt_paid_raw:
+                error_fields.append('amount_paid')
+            if not due_date_str:
+                error_fields.append('due_date')
+
+            if error_fields:
+                messages.error(request, "Credit entry failed: Please fill in all required fields.")
+                return redirect(f"/credit/?show_modal=add_credit&error_fields={','.join(error_fields)}&supplier={supplier_id or ''}&invoice_number={invoice_num}&total_amount={total_amt_raw}&amount_paid={amt_paid_raw}&due_date={due_date_str or ''}")
+
+            total_amt = Decimal(total_amt_raw)
+            amt_paid = Decimal(amt_paid_raw)
 
             try:
                 due_date = datetime.strptime(due_date_str, "%Y-%m-%d").date()
@@ -611,7 +741,7 @@ def credit(request):
 
             if payment_amount <= 0 or payment_amount > credit_record.balance_due:
                 messages.error(request, f"Payment Failed: Amount must be between UGX 1 and UGX {credit_record.balance_due}.")
-                return redirect(f'/credit/?pay_id={credit_id}')
+                return redirect(f'/credit/?pay_id={credit_id}&error_fields=payment_amount')
 
             credit_record.amount_paid += payment_amount
             credit_record.save()  # Triggers our custom auto-balance calculations
@@ -630,6 +760,14 @@ def credit(request):
         'credits': credits,
         'suppliers': suppliers,
         'today': timezone.now(),
+        'error_fields': request.GET.get('error_fields', '').split(',') if request.GET.get('error_fields') else [],
+        'form_data': {
+            'supplier': request.GET.get('supplier', ''),
+            'invoice_number': request.GET.get('invoice_number', ''),
+            'total_amount': request.GET.get('total_amount', ''),
+            'amount_paid': request.GET.get('amount_paid', ''),
+            'due_date': request.GET.get('due_date', ''),
+        },
     }
 
     if request.GET.get('show_modal') == 'add_credit':
@@ -685,7 +823,7 @@ def reports(request):
 
 
 
-# ===================== PAGE 1: SUPPLIER MANAGEMENT =====================
+# PAGE 1: SUPPLIER MANAGEMENT 
 @require_role('STOCK', 'ADMIN')
 def supplier_management(request):
     if request.method == 'POST':
@@ -694,10 +832,20 @@ def supplier_management(request):
         if form_action == 'create':
             name = request.POST.get('name', '').strip()
             phone = request.POST.get('phone', '').strip()
+            error_fields = []
+
+            if not name:
+                error_fields.append('name')
+            if not phone:
+                error_fields.append('phone')
+
+            if error_fields:
+                messages.error(request, "Supplier creation failed: Please fill in all required fields.")
+                return redirect(f"/suppliers/?show_modal=add&error_fields={','.join(error_fields)}&name={name}&phone={phone}")
 
             if Supplier.objects.filter(name__iexact=name).exists():
                 messages.error(request, "Error: This supplier name already exists.")
-                return redirect('/suppliers/?show_modal=add')
+                return redirect(f"/suppliers/?show_modal=add&error_fields=name&name={name}&phone={phone}")
 
             Supplier.objects.create(name=name, phone=phone)
             messages.success(request, f"Supplier '{name}' added successfully!")
@@ -709,10 +857,20 @@ def supplier_management(request):
             
             name = request.POST.get('name', '').strip()
             phone = request.POST.get('phone', '').strip()
+            error_fields = []
+
+            if not name:
+                error_fields.append('name')
+            if not phone:
+                error_fields.append('phone')
+
+            if error_fields:
+                messages.error(request, "Supplier update failed: Please fill in all required fields.")
+                return redirect(f"/suppliers/?edit_id={supplier_id}&error_fields={','.join(error_fields)}&name={name}&phone={phone}")
 
             if Supplier.objects.filter(name__iexact=name).exclude(id=supplier_id).exists():
                 messages.error(request, "Error: This supplier name already exists.")
-                return redirect(f'/suppliers/?edit_id={supplier_id}')
+                return redirect(f"/suppliers/?edit_id={supplier_id}&error_fields=name&name={name}&phone={phone}")
 
             supplier.name = name
             supplier.phone = phone
@@ -732,6 +890,11 @@ def supplier_management(request):
     context = {
         'suppliers': suppliers,
         'today': timezone.now(),
+        'error_fields': request.GET.get('error_fields', '').split(',') if request.GET.get('error_fields') else [],
+        'form_data': {
+            'name': request.GET.get('name', ''),
+            'phone': request.GET.get('phone', ''),
+        },
     }
 
     if request.GET.get('show_modal') == 'add':
@@ -750,7 +913,7 @@ def supplier_management(request):
     return render(request, 'supplier_management.html', context)
 
 
-# ===================== PAGE 2: DETAILED INVENTORY REPORTS =====================
+#  INVENTORY REPORTS
 @require_role('STOCK', 'ADMIN')
 def inventory_reports(request):
     products = Product.objects.all().select_related('supplier', 'category').order_by('name')
@@ -807,7 +970,7 @@ def inventory_reports(request):
     return render(request, 'inventory_reports.html', context)
 
 
-# ===================== PAGE 3: CREDIT AGING REPORT =====================
+#  CREDIT AGING REPORT 
 @require_role('SALES', 'ADMIN')
 def credit_aging(request):
     today = datetime.now().date()
@@ -866,15 +1029,20 @@ def credit_aging(request):
     return render(request, 'credit_aging.html', context)
 
 
-# ===================== PAGE 5: SETTINGS/CONFIGURATION =====================
+# PAGE 5: SETTINGS/CONFIGURATION 
 @require_role('ADMIN')
 def settings(request):
     # Get or create system settings
     settings_obj = SystemSettings.get_settings()
     
     if request.method == 'POST':
+        business_name = request.POST.get('business_name', '').strip()
+        if not business_name:
+            messages.error(request, "Business name is required.")
+            return redirect('/settings/?error_fields=business_name')
+
         # Update business info
-        settings_obj.business_name = request.POST.get('business_name', settings_obj.business_name)
+        settings_obj.business_name = business_name
         settings_obj.business_phone = request.POST.get('business_phone', settings_obj.business_phone)
         settings_obj.business_email = request.POST.get('business_email', settings_obj.business_email)
         
@@ -904,6 +1072,7 @@ def settings(request):
         return redirect('settings')
     
     context = {
+        'error_fields': request.GET.get('error_fields', '').split(',') if request.GET.get('error_fields') else [],
         'transport_rate': settings_obj.transport_rate_per_km,
         'business_name': settings_obj.business_name,
         'business_phone': settings_obj.business_phone,
@@ -918,7 +1087,7 @@ def settings(request):
     return render(request, 'settings.html', context)
 
 
-# ===================== PAGE 6: USER PROFILE =====================
+# USER PROFILE
 @require_role('SALES', 'STOCK', 'ADMIN')
 def user_profile(request):
     user = request.user
@@ -975,7 +1144,7 @@ def user_profile(request):
     return render(request, 'user_profile.html', context)
 
 
-# ===================== PAGE 7: SALES HISTORY & RECEIPTS =====================
+#  SALES HISTORY & RECEIPTS
 @require_role('SALES', 'ADMIN')
 def sales_history(request):
     # Get all sales with related data

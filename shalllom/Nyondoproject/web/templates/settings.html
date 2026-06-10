@@ -10,12 +10,7 @@
         {% if messages %}
             <div style="margin-bottom: 20px;">
                 {% for message in messages %}
-                    <div style="padding: 12px; border-radius: 4px; 
-                        {% if 'error' in message.tags or 'Failed' in message|stringformat:'s' or 'Error' in message|stringformat:'s' %}
-                            background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;
-                        {% else %}
-                            background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0;
-                        {% endif %} font-weight: 500; margin-bottom: 8px;">
+                    <div style="padding: 12px; border-radius: 4px; {% if 'error' in message.tags or 'Failed' in message|stringformat:'s' or 'Error' in message|stringformat:'s' %}background-color: #fee2e2; color: #991b1b; border: 1px solid #fca5a5;{% else %}background-color: #dcfce7; color: #166534; border: 1px solid #bbf7d0;{% endif %} font-weight: 500; margin-bottom: 8px;">
                         {{ message }}
                     </div>
                 {% endfor %}
@@ -29,7 +24,7 @@
             
             <div class="field">
                 <label>Business Name:</label>
-                <input type="text" name="business_name" value="{{ business_name }}" required>
+                <input type="text" name="business_name" value="{{ business_name }}" class="{% if 'business_name' in error_fields %}error-border{% endif %}">
             </div>
             
             <div class="field">
@@ -64,7 +59,7 @@
             </div>
 
             <div style="margin-top: 30px; display: flex; gap: 10px;">
-                <button type="submit" class="btn" style="background:  color: white; padding: 12px 24px;">Save Settings</button>
+                <button type="submit" class="btn" style="background: #013220; color: white; padding: 12px 24px;">Save Settings</button>
                 <a href="{% url 'admin_dashboard' %}" class="btn" style="background:#013220;; color: white; padding: 12px 24px;">Cancel</a>
             </div>
         </form>

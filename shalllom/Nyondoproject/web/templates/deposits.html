@@ -1,8 +1,17 @@
 {% extends 'base.html' %}
+{% load humanize %}
+
+
 
 {% block active_deposits %}active{% endblock %}
 
 {% block content %}
+    <style>
+        .error-border {
+            border: 1px solid #dc2626 !important;
+            background-color: #fef2f2 !important;
+        }
+    </style>
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 25px;">
         <h2>Salary-Earner Deposit Scheme Registry</h2>
         <a href="?show_modal=add_account" class="btn" style="background: #013220; color: white;">+ Register New Account</a>
@@ -44,9 +53,9 @@
                 <td style="padding: 14px; font-weight: 600; color: #1e293b;">{{ acc.customer_name }}</td>
                 <td style="padding: 14px; font-family: monospace; color: #475569;">{{ acc.national_id_nin }}</td>
                 <td style="padding: 14px; color: #475569;">{{ acc.phone_number }}</td>
-                <td style="padding: 14px; font-weight: bold; color: #0369a1;">UGX {{ acc.current_balance }}</td>
+                <td style="padding: 14px; font-weight: bold; color: #0369a1;">UGX {{ acc.current_balance|intcomma }}</td>
                 <td style="padding: 14px; text-align: right;">
-                    <a href="?top_up_id={{ acc.id }}" class="btn" style="background: #e0f2fe; color: #0369a1; padding: 6px 12px; font-size: 13px;">➕ Add Cash Deposit</a>
+                    <a href="?top_up_id={{ acc.id }}" class="btn" style="background: #e0f2fe; color: #0369a1; padding: 6px 12px; font-size: 13px;"> Add Cash Deposit</a>
                 </td>
             </tr>
             {% empty %}
@@ -71,29 +80,29 @@
                 
                 <div class="field">
                     <label>Account Number (Unique reference):</label>
-                    <input type="text" name="account_number" placeholder="E.g., NYD-ACC-101" value="{{ form_data.account_number }}" required>
+                    <input type="text" name="account_number" placeholder="E.g., NYD-ACC-101" value="{{ form_data.account_number }}" class="{% if 'account_number' in error_fields %}error-border{% endif %}">
                 </div>
                 <div class="field">
-                    <label>Full Customer Name:</label>
-                    <input type="text" name="customer_name" value="{{ form_data.customer_name }}" required>
+                    <label>Customer Name:</label>
+                    <input type="text" name="customer_name" value="{{ form_data.customer_name }}" class="{% if 'customer_name' in error_fields %}error-border{% endif %}">
                 </div>
                 <div class="field">
-                    <label>Ugandan Phone Number:</label>
-                    <input type="text" name="phone_number" placeholder="E.g., 0772123456 or +256772123456" value="{{ form_data.phone_number }}" required>
+                    <label>Phone Number:</label>
+                    <input type="text" name="phone_number" placeholder="E.g., 0772123456 or +256772123456" value="{{ form_data.phone_number }}" class="{% if 'phone_number' in error_fields %}error-border{% endif %}">
                     <small style="color: #64748b; display: block; margin-top: 4px;">Format: 077XXXXXXXX or +256772XXXXXXX</small>
                 </div>
                 <div class="field">
-                    <label>National ID Card NIN (14 characters):</label>
-                    <input type="text" name="national_id_nin" placeholder="E.g., CM950XXXXXXXXX" value="{{ form_data.national_id_nin }}" required>
+                    <label>Customer NIN :</label>
+                    <input type="text" name="national_id_nin" placeholder="E.g., CM950XXXXXXXXX" value="{{ form_data.national_id_nin }}" class="{% if 'national_id_nin' in error_fields %}error-border{% endif %}">
                     <small style="color: #64748b; display: block; margin-top: 4px;">Format: CM or CF followed by 12 alphanumeric characters</small>
                 </div>
                 <div class="field">
                     <label>Initial Cash Deposit (UGX):</label>
-                    <input type="number" name="initial_balance" min="0" value="{{ form_data.initial_balance }}" required>
+                    <input type="number" name="initial_balance" min="0" value="{{ form_data.initial_balance }}">
                 </div>
                 
                 <button type="submit" class="btn" style="background: #013220; color: white; width: 100%; font-size: 15px;">
-                    Save Profile & Issue Ledger Account
+                    Save Profile 
                 </button>
             </form>
         </div>
@@ -116,12 +125,12 @@
                 <input type="hidden" name="account_id" value="{{ target_account.id }}">
                 
                 <div class="field">
-                    <label>Physical Cash Amount Handed In (UGX):</label>
-                    <input type="number" name="deposit_amount" min="1000" placeholder="Minimum 1,000 UGX" required>
+                    <label>Cash Deposited (UGX):</label>
+                    <input type="number" name="deposit_amount" min="1000" placeholder="Minimum 1,000 UGX">
                 </div>
                 
                 <button type="submit" class="btn" style="background: #16a34a; color: white; width: 100%; font-size: 15px;">
-                    Confirm & Update Ledger Account Balance
+                    Confirm Deposit
                 </button>
             </form>
         </div>

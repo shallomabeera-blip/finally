@@ -1,4 +1,7 @@
 {% extends 'base.html' %}
+{% load humanize %}
+
+
 
 {% load custom_filters %}
 
@@ -136,7 +139,7 @@
 {% block content %}
 
 <div class="page-header">
-    <h1 class="page-title">Detailed Inventory Reports</h1>
+    <h1 class="page-title">Detailed Stock Reports</h1>
 </div>
 
 <!-- KEY METRICS -->
@@ -147,15 +150,15 @@
     </div>
     <div class="stat-card">
         <div class="stat-label">Total Inventory Value (Cost)</div>
-        <div class="stat-value currency">UGX {{ total_inventory_value|floatformat:0 }}</div>
+        <div class="stat-value currency">UGX {{ total_inventory_value|floatformat:0|intcomma }}</div>
     </div>
     <div class="stat-card success">
         <div class="stat-label">Total Selling Value (Potential)</div>
-        <div class="stat-value currency">UGX {{ total_potential_value|floatformat:0 }}</div>
+        <div class="stat-value currency">UGX {{ total_potential_value|floatformat:0|intcomma }}</div>
     </div>
     <div class="stat-card warning">
-        <div class="stat-label">Gross Profit Potential</div>
-        <div class="stat-value currency">UGX {{ total_profit_potential|floatformat:0 }}</div>
+        <div class="stat-label">Gross Profit </div>
+        <div class="stat-value currency">UGX {{ total_profit_potential|floatformat:0|intcomma }}</div>
     </div>
 </div>
 
@@ -166,7 +169,7 @@
         <thead>
             <tr>
                 <th>Category</th>
-                <th>Product Count</th>
+                <th>Product </th>
                 <th>Total Items in Stock</th>
                 <th>Inventory Value (UGX)</th>
             </tr>
@@ -177,7 +180,7 @@
                     <td><strong>{{ cat.category.name }}</strong></td>
                     <td>{{ cat.product_count }}</td>
                     <td>{{ cat.items_in_stock }}</td>
-                    <td class="currency">UGX {{ cat.total_value|floatformat:0 }}</td>
+                    <td class="currency">UGX {{ cat.total_value|floatformat:0|intcomma }}</td>
                 </tr>
             {% endfor %}
         </tbody>
@@ -193,7 +196,7 @@
         <thead>
             <tr>
                 <th>Product Name</th>
-                <th>SKU</th>
+                <!-- <th>SKU</th> -->
                 <th>Current Stock</th>
                 <th>Threshold</th>
                 <th>Status</th>
@@ -203,7 +206,7 @@
             {% for product in low_stock_products %}
                 <tr>
                     <td><strong>{{ product.name }}</strong></td>
-                    <td>{{ product.sku }}</td>
+                    <!-- <td>{{ product.sku }}</td> -->
                     <td>{{ product.quantity_in_stock }}</td>
                     <td>{{ product.low_stock_threshold }}</td>
                     <td><span class="badge badge-low">REORDER NEEDED</span></td>
@@ -224,7 +227,7 @@
         <thead>
             <tr>
                 <th>Product</th>
-                <th>SKU</th>
+                <!-- <th>SKU</th> -->
                 <th>In Stock</th>
                 <th>Profit per Unit</th>
                 <th>Total Profit Potential</th>
@@ -234,10 +237,10 @@
             {% for item in product_profitability %}
                 <tr>
                     <td><strong>{{ item.product.name }}</strong></td>
-                    <td>{{ item.product.sku }}</td>
+                    <!-- <td>{{ item.product.sku }}</td> -->
                     <td>{{ item.product.quantity_in_stock }}</td>
-                    <td class="currency">UGX {{ item.profit_per_unit|floatformat:0 }}</td>
-                    <td class="currency"><strong>UGX {{ item.total_profit_potential|floatformat:0 }}</strong></td>
+                    <td class="currency">UGX {{ item.profit_per_unit|floatformat:0|intcomma }}</td>
+                    <td class="currency"><strong>UGX {{ item.total_profit_potential|floatformat:0|intcomma }}</strong></td>
                 </tr>
             {% endfor %}
         </tbody>
@@ -254,7 +257,7 @@
             <tr>
                 <th>Product Name</th>
                 <th>Category</th>
-                <th>SKU</th>
+                <!-- <th>SKU</th> -->
                 <th>Cost Price</th>
                 <th>Selling Price</th>
                 <th>In Stock</th>
@@ -267,8 +270,8 @@
                     <td><strong>{{ product.name }}</strong></td>
                     <td>{{ product.category.name }}</td>
                     <td>{{ product.sku }}</td>
-                    <td class="currency">UGX {{ product.cost_price|floatformat:0 }}</td>
-                    <td class="currency">UGX {{ product.selling_price|floatformat:0 }}</td>
+                    <td class="currency">UGX {{ product.cost_price|floatformat:0|intcomma }}</td>
+                    <td class="currency">UGX {{ product.selling_price|floatformat:0|intcomma }}</td>
                     <td>
                         {% if product.quantity_in_stock <= product.low_stock_threshold %}
                             <span class="badge badge-low">{{ product.quantity_in_stock }}</span>
@@ -276,7 +279,7 @@
                             <span class="badge badge-ok">{{ product.quantity_in_stock }}</span>
                         {% endif %}
                     </td>
-                    <td class="currency">UGX {{ product.quantity_in_stock|multiply:product.cost_price|floatformat:0 }}</td>
+                    <td class="currency">UGX {{ product.quantity_in_stock|multiply:product.cost_price|floatformat:0|intcomma }}</td>
                 </tr>
             {% endfor %}
         </tbody>
